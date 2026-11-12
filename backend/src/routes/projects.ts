@@ -10,7 +10,16 @@ export async function projectRoutes(app: FastifyInstance) {
       .order('created_at', { ascending: false })
 
     if (error) return reply.status(500).send({ error: error.message })
-    return data
+
+    // Obtener conexiones/aristas
+    const { data: edgesData } = await supabase
+      .from('project_connections')
+      .select('*')
+
+    return {
+      projects: data || [],
+      connections: edgesData || [],
+    }
   })
 
   // GET /api/projects/:id — detalle de un proyecto
@@ -97,6 +106,32 @@ export async function projectRoutes(app: FastifyInstance) {
   app.delete('/accounts/:accountId', async (req, reply) => {
     const { accountId } = req.params as { accountId: string }
     const { error } = await supabase.from('accounts').delete().eq('id', accountId)
+    if (error) return reply.status(500).send({ error: error.message })
+    return { success: true }
+  })
+
+  // POST /api/projects/connections — guardar una conexion entre nodos
+  app.post('/connections', async (req, reply) => {
+    const body = req.body as { source_id: string; target_id: string; label?: string }
+    const { data, error } = await supabase
+      .from('project_connections')
+      .upsert(body, { onConflict: 'source_id,target_id' })
+      .select()
+      .single()
+
+    if (error) return reply.status(500).send({ error: error.message })
+    return reply.status(201).send(data)
+  })
+
+  // DELETE /api/projects/connections — eliminar conexion entre nodos
+  app.delete('/connections', async (req, reply) => {
+    const { source_id, target_id } = req.query as { source_id: string; target_id: string }
+    const { error } = await supabase
+      .from('project_connections')
+      .delete()
+      .eq('source_id', source_id)
+      .eq('target_id', target_id)
+
     if (error) return reply.status(500).send({ error: error.message })
     return { success: true }
   })
