@@ -10,3 +10,4 @@ CREATE TABLE IF NOT EXISTS project_connections (
 
 CREATE INDEX IF NOT EXISTS idx_project_connections_source ON project_connections(source_id);
 CREATE INDEX IF NOT EXISTS idx_project_connections_target ON project_connections(target_id);
+

@@ -413,3 +413,4 @@ export default function ProjectModal({ project, onClose, onSuccess }: ProjectMod
     </div>
   )
 }
+
