@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #030712;
+}
+
+/* FullCalendar dark theme */
+.fc {
+  --fc-border-color: #374151;
+  --fc-button-bg-color: #374151;
+  --fc-button-border-color: #4b5563;
+  --fc-button-hover-bg-color: #4b5563;
+  --fc-button-hover-border-color: #6b7280;
+  --fc-button-active-bg-color: #6366f1;
+  --fc-button-active-border-color: #6366f1;
+  --fc-event-bg-color: #6366f1;
+  --fc-event-border-color: #4f46e5;
+  --fc-today-bg-color: rgba(99, 102, 241, 0.1);
+  --fc-page-bg-color: transparent;
+  color: #e5e7eb;
+}
+
+.fc .fc-toolbar-title {
+  color: #f9fafb;
+  font-size: 1rem;
+}
+
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number {
+  color: #9ca3af;
+}
+
+.fc .fc-daygrid-day-top {
+  justify-content: center;
+}
+
+/* ReactFlow dark */
+.react-flow__background {
+  background-color: #030712;
+}
