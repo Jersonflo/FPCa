@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../lib/api'
 import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
+  PieChart, Pie, Cell, Tooltip,
   ResponsiveContainer, Legend,
 } from 'recharts'
 import { CreditCard, TrendingUp, TrendingDown, Target, Plus } from 'lucide-react'
@@ -83,7 +83,7 @@ export default function FinancePage() {
                 <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70}>
                   {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => formatCOP(v)} />
+                <Tooltip formatter={(v: any) => formatCOP(Number(v) || 0)} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
