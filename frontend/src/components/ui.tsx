@@ -22,14 +22,14 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4"
+      className="fixed inset-0 z-50 bg-[#02040d]/70 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-4 animate-fade-in"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className={`bg-gray-900 border border-gray-800 w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'} rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] flex flex-col`}
+        className={`glass w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'} rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col animate-modal-in`}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-          <h3 className="text-base font-semibold text-white">{title}</h3>
+          <h3 className="font-serif text-2xl text-gray-100 leading-none">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-lg" aria-label="Cerrar">
             <X size={18} />
           </button>
@@ -42,7 +42,7 @@ export function Modal({
 }
 
 const fieldCls =
-  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-hidden focus:border-indigo-500'
+  'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-hidden focus:border-indigo-400 focus:shadow-[0_0_0_3px_rgba(103,232,249,0.15)] transition-shadow'
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: ReactNode }) {
   return (
@@ -67,23 +67,23 @@ export function Button({
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'danger' }) {
   const styles = {
     primary: 'bg-indigo-600 hover:bg-indigo-500 text-white',
-    ghost: 'bg-gray-800 hover:bg-gray-700 text-gray-200',
-    danger: 'bg-red-500/10 hover:bg-red-500/20 text-red-400',
+    ghost: 'bg-white/[0.04] hover:bg-white/[0.08] border border-gray-800 text-gray-200',
+    danger: 'bg-[#e0457b]/10 hover:bg-[#e0457b]/20 text-[#ff8fb1]',
   }[variant]
   return (
     <button
       {...p}
-      className={`inline-flex items-center justify-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${styles} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed ${styles} ${className}`}
     />
   )
 }
 
 export function Card({ title, action, children, className = '' }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`bg-gray-900 border border-gray-800 rounded-xl p-4 ${className}`}>
+    <section className={`bg-gray-900 border border-gray-800 rounded-2xl p-4 glow-hover ${className}`}>
       {(title || action) && (
         <div className="flex items-center justify-between mb-4 gap-2">
-          <h3 className="text-sm font-medium text-white">{title}</h3>
+          <h3 className="label-caps">{title}</h3>
           {action}
         </div>
       )}
@@ -94,10 +94,14 @@ export function Card({ title, action, children, className = '' }: { title?: Reac
 
 export function ProgressBar({ value, color = '#6366f1', over }: { value: number; color?: string; over?: boolean }) {
   return (
-    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
       <div
         className="h-full rounded-full transition-all"
-        style={{ width: `${Math.min(100, Math.max(0, value))}%`, background: over ? '#ef4444' : color }}
+        style={{
+          width: `${Math.min(100, Math.max(0, value))}%`,
+          background: over ? 'linear-gradient(90deg, #e0457b, #ff7aa8)' : `linear-gradient(90deg, ${color}55, ${color})`,
+          boxShadow: `0 0 10px -3px ${over ? '#ff5c8a' : color}`,
+        }}
       />
     </div>
   )

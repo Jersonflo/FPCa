@@ -40,10 +40,10 @@ export type Stats = {
 export type TrendPoint = { key: string; year: number; month: number; income: number; expenses: number; savings: number }
 
 export const TX_TYPES: Record<TxType, { label: string; short: string; color: string; sign: '+' | '-' }> = {
-  INCOME: { label: 'Ingreso', short: 'Ingreso', color: '#10b981', sign: '+' },
-  FIXED: { label: 'Gasto necesario (fijo)', short: 'Necesario', color: '#6366f1', sign: '-' },
-  VARIABLE: { label: 'Gasto variable (gustos)', short: 'Gusto', color: '#f59e0b', sign: '-' },
-  SAVINGS: { label: 'Ahorro / inversión', short: 'Ahorro', color: '#06b6d4', sign: '-' },
+  INCOME: { label: 'Ingreso', short: 'Ingreso', color: '#98ffe8', sign: '+' },
+  FIXED: { label: 'Gasto necesario (fijo)', short: 'Necesario', color: '#7fb2ff', sign: '-' },
+  VARIABLE: { label: 'Gasto variable (gustos)', short: 'Gusto', color: '#f5c97a', sign: '-' },
+  SAVINGS: { label: 'Ahorro / inversión', short: 'Ahorro', color: '#9aa5f0', sign: '-' },
 }
 
 export const CATEGORY_SUGGESTIONS: Record<TxType, string[]> = {
@@ -53,7 +53,7 @@ export const CATEGORY_SUGGESTIONS: Record<TxType, string[]> = {
   SAVINGS: ['Ahorro', 'Fondo de emergencia', 'Inversión', 'Pensión voluntaria'],
 }
 
-export const CHART_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
+export const CHART_COLORS = ['#7fb2ff', '#9aa5f0', '#98ffe8', '#ff7aa8', '#f5c97a', '#bad7f5', '#c4a8ff', '#6fd3ff', '#ffb38a']
 
 export const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 

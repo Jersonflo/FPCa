@@ -16,7 +16,7 @@ function TaskCard({ task, onOpen, onDragStart, onDragEnd }: { task: Task; onOpen
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onOpen}
-      className={`group bg-gray-800/80 hover:bg-gray-800 border border-gray-700/60 hover:border-gray-600 rounded-lg p-3 cursor-pointer select-none transition-colors ${
+      className={`group bg-gray-800 hover:bg-gray-700 border border-gray-800 hover:border-gray-700 rounded-2xl p-3.5 cursor-pointer select-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_40px_-18px_rgba(127,178,255,0.5)] ${
         task.status === 'DONE' ? 'opacity-60' : ''
       }`}
       style={{ borderLeft: `3px solid ${PRIORITIES[task.priority]?.color || '#6b7280'}` }}
@@ -134,14 +134,14 @@ export default function TasksPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 md:p-6 pb-3 md:pb-4 flex flex-wrap items-center gap-3 justify-between">
+      <div className="p-5 md:p-8 pb-4 md:pb-6 flex flex-wrap items-end gap-3 justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Tareas</h2>
+          <h2 className="text-gradient">Tareas</h2>
           <p className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
             <span>{pending} pendientes</span>
-            {today > 0 && <span className="text-amber-400">· {today} para hoy</span>}
+            {today > 0 && <span className="text-[#f5c97a]">· {today} para hoy</span>}
             {overdue > 0 && (
-              <span className="text-red-400 inline-flex items-center gap-1">
+              <span className="text-[#ff8fb1] inline-flex items-center gap-1">
                 · <AlertTriangle size={11} /> {overdue} vencidas
               </span>
             )}
@@ -169,7 +169,7 @@ export default function TasksPage() {
           )}
           <button
             onClick={() => setModal({ status: 'TODO' })}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3.5 py-2 rounded-lg"
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-xs font-medium px-4 py-2.5 rounded-full"
           >
             <Plus size={16} /> Nueva tarea
           </button>
@@ -179,21 +179,21 @@ export default function TasksPage() {
       {isLoading ? (
         <p className="text-gray-500 text-sm px-6">Cargando tareas…</p>
       ) : (
-        <div className="flex-1 flex gap-3 overflow-x-auto px-4 md:px-6 pb-4 snap-x">
+        <div className="flex-1 flex gap-3 overflow-x-auto px-4 md:px-6 pb-4 snap-x stagger">
           {COLUMNS.map((col) => (
             <div
               key={col.id}
               onDragOver={(e) => { e.preventDefault(); setOverCol(col.id) }}
               onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setOverCol(null)}
               onDrop={(e) => handleDrop(e, col.id)}
-              className={`snap-start shrink-0 w-[80vw] sm:w-72 flex flex-col rounded-xl border transition-colors ${
-                overCol === col.id ? 'border-indigo-500 bg-indigo-500/5' : 'border-gray-800 bg-gray-900'
+              className={`snap-start shrink-0 w-[80vw] sm:w-72 flex flex-col rounded-2xl border transition-all duration-300 ${
+                overCol === col.id ? 'border-[#98ffe8]/40 bg-[#98ffe8]/[0.04] shadow-[0_0_50px_-15px_rgba(152,255,232,0.5)]' : 'border-gray-800 bg-gray-900'
               }`}
             >
               <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full" style={{ background: col.accent }} />
-                  <span className="text-sm font-medium text-white">{col.title}</span>
+                  <span className="w-2 h-2 rounded-full" style={{ background: col.accent, boxShadow: `0 0 8px ${col.accent}` }} />
+                  <span className="label-caps !text-gray-200">{col.title}</span>
                   <span className="text-xs text-gray-500">{byColumn[col.id].length}</span>
                 </div>
                 <div className="flex items-center gap-1">

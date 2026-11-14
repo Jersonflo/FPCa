@@ -112,7 +112,7 @@ export default function CalendarPage() {
       <div className="flex-1 flex flex-col min-h-[540px]">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">Calendario</h2>
+            <h2 className="text-gradient">Calendario</h2>
             <p className="text-xs text-gray-500">Reuniones de Google Calendar + fechas límite de tus tareas</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -126,13 +126,13 @@ export default function CalendarPage() {
             </label>
             <button
               onClick={() => setTaskModal({ date: toDateKey(new Date()) })}
-              className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold px-3 py-2 rounded-lg"
+              className="flex items-center gap-1.5 bg-white/[0.04] hover:bg-white/[0.08] border border-gray-800 text-gray-200 text-xs font-medium px-4 py-2.5 rounded-full"
             >
               <ListTodo size={15} /> Tarea
             </button>
             <button
               onClick={() => setEventModal({})}
-              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-2 rounded-lg"
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-xs font-medium px-4 py-2.5 rounded-full"
             >
               <Plus size={15} /> Evento
             </button>
@@ -143,7 +143,7 @@ export default function CalendarPage() {
           <p className="text-xs text-red-400 mb-2">No se pudieron cargar los eventos de Google: {(eventsQuery.error as Error).message}</p>
         )}
 
-        <div className="flex-1 bg-gray-900 rounded-xl border border-gray-800 p-2 overflow-hidden">
+        <div className="flex-1 bg-gray-900 rounded-2xl border border-gray-800 p-2 overflow-hidden animate-rise">
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
@@ -163,9 +163,9 @@ export default function CalendarPage() {
       </div>
 
       {/* Panel lateral: próximas fechas límite */}
-      <aside className="lg:w-72 shrink-0 bg-gray-900 border border-gray-800 rounded-xl p-4 h-fit">
-        <h3 className="text-sm font-medium text-white flex items-center gap-2 mb-3">
-          <CalendarClock size={16} className="text-indigo-400" /> Próximos pendientes
+      <aside className="lg:w-72 shrink-0 bg-gray-900 border border-gray-800 rounded-2xl p-4 h-fit animate-rise [animation-delay:0.15s]">
+        <h3 className="label-caps flex items-center gap-2 mb-4">
+          <CalendarClock size={14} className="text-indigo-400" /> Próximos pendientes
         </h3>
         {upcoming.length === 0 ? (
           <p className="text-xs text-gray-500">No tienes tareas con fecha. Haz clic en un día para agregar una.</p>

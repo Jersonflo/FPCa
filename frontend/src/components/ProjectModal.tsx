@@ -173,8 +173,8 @@ export default function ProjectModal({ project, onClose, onSuccess }: ProjectMod
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-[#02040d]/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+      <div className="glass rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col animate-modal-in">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800">
           <h3 className="text-lg font-semibold text-white">

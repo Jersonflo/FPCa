@@ -20,16 +20,16 @@ export type Task = {
 }
 
 export const COLUMNS: { id: TaskStatus; title: string; hint: string; accent: string }[] = [
-  { id: 'BACKLOG', title: 'Ideas / Algún día', hint: 'Sin prisa', accent: '#6b7280' },
-  { id: 'TODO', title: 'Por hacer', hint: 'Pendientes', accent: '#6366f1' },
-  { id: 'DOING', title: 'En progreso', hint: 'Lo que estoy haciendo', accent: '#f59e0b' },
-  { id: 'DONE', title: 'Hecho', hint: 'Terminado', accent: '#10b981' },
+  { id: 'BACKLOG', title: 'Ideas / Algún día', hint: 'Sin prisa', accent: '#6b7a93' },
+  { id: 'TODO', title: 'Por hacer', hint: 'Pendientes', accent: '#7fb2ff' },
+  { id: 'DOING', title: 'En progreso', hint: 'Lo que estoy haciendo', accent: '#9aa5f0' },
+  { id: 'DONE', title: 'Hecho', hint: 'Terminado', accent: '#98ffe8' },
 ]
 
 export const PRIORITIES: Record<TaskPriority, { label: string; color: string }> = {
-  HIGH: { label: 'Alta', color: '#ef4444' },
-  MEDIUM: { label: 'Media', color: '#f59e0b' },
-  LOW: { label: 'Baja', color: '#6b7280' },
+  HIGH: { label: 'Alta', color: '#ff5c8a' },
+  MEDIUM: { label: 'Media', color: '#f5c97a' },
+  LOW: { label: 'Baja', color: '#6b7a93' },
 }
 
 export type DueState = 'overdue' | 'today' | 'soon' | 'later' | 'none'
@@ -46,9 +46,9 @@ export function dueState(task: Pick<Task, 'due_date' | 'status'>): DueState {
 }
 
 export const DUE_STYLES: Record<DueState, string> = {
-  overdue: 'bg-red-500/15 text-red-400',
-  today: 'bg-amber-500/15 text-amber-400',
-  soon: 'bg-indigo-500/15 text-indigo-300',
+  overdue: 'bg-[#e0457b]/15 text-[#ff8fb1]',
+  today: 'bg-[#f5c97a]/15 text-[#f5c97a]',
+  soon: 'bg-[#9aa5f0]/15 text-[#c3caf8]',
   later: 'bg-gray-800 text-gray-400',
   none: 'bg-gray-800 text-gray-500',
 }

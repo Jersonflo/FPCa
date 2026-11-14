@@ -14,13 +14,14 @@ import {
   type Budget, type FinanceCard, type Goal, type Stats, type Transaction, type TrendPoint, type TxType,
 } from '../lib/finance'
 import { Card, ProgressBar } from '../components/ui'
+import AnimatedNumber from '../components/AnimatedNumber'
 import { BudgetsModal, CardModal, ContributeModal, GoalModal, TransactionModal } from '../components/FinanceModals'
 
 const compact = (v: number) =>
   new Intl.NumberFormat('es-CO', { notation: 'compact', maximumFractionDigits: 1 }).format(v)
 
 const tooltipStyle = {
-  contentStyle: { background: '#111827', border: '1px solid #374151', borderRadius: 8, fontSize: 12 },
+  contentStyle: { background: 'rgba(11,17,38,0.92)', border: '1px solid rgba(103,232,249,0.25)', borderRadius: 12, fontSize: 12 },
   labelStyle: { color: '#e5e7eb' },
 }
 
@@ -103,7 +104,7 @@ export default function FinancePage() {
   const defaultTxDate = isCurrentMonth ? undefined : `${year}-${String(month).padStart(2, '0')}-01`
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <div className="p-5 md:p-8 space-y-4">
       {/* Encabezado */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -111,7 +112,7 @@ export default function FinancePage() {
             <ChevronLeft size={16} />
           </button>
           <div className="min-w-[150px] text-center">
-            <h2 className="text-lg font-semibold text-white leading-tight">Finanzas</h2>
+            <h2 className="text-gradient">Finanzas</h2>
             <p className="text-xs text-gray-500">{monthLabel}</p>
           </div>
           <button onClick={() => shiftMonth(1)} className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300" aria-label="Mes siguiente">
@@ -128,35 +129,37 @@ export default function FinancePage() {
         </div>
         <button
           onClick={() => setModal({ kind: 'tx' })}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-2 rounded-lg"
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-sm font-medium px-5 py-2.5 rounded-full"
         >
           <Plus size={16} /> Registrar movimiento
         </button>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 stagger">
         {[
-          { label: 'Ingresos', value: stats?.income || 0, icon: TrendingUp, color: 'text-emerald-400' },
-          { label: 'Gastos', value: stats?.total_expenses || 0, icon: TrendingDown, color: 'text-red-400' },
-          { label: 'Ahorrado', value: stats?.savings || 0, icon: PiggyBank, color: 'text-cyan-400' },
-          { label: 'Disponible', value: stats?.net_balance || 0, icon: Wallet, color: (stats?.net_balance || 0) < 0 ? 'text-red-400' : 'text-indigo-400' },
+          { label: 'Ingresos', value: stats?.income || 0, icon: TrendingUp, color: 'text-[#98ffe8]' },
+          { label: 'Gastos', value: stats?.total_expenses || 0, icon: TrendingDown, color: 'text-[#ff8fb1]' },
+          { label: 'Ahorrado', value: stats?.savings || 0, icon: PiggyBank, color: 'text-[#9aa5f0]' },
+          { label: 'Disponible', value: stats?.net_balance || 0, icon: Wallet, color: (stats?.net_balance || 0) < 0 ? 'text-[#ff8fb1]' : 'text-[#bad7f5]' },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div key={label} className="bg-gray-900 border border-gray-800 rounded-2xl p-4 glow-hover">
             <div className={`flex items-center gap-2 mb-1 ${color}`}>
               <Icon size={16} />
-              <span className="text-xs text-gray-400">{label}</span>
+              <span className="label-caps !text-[10px]">{label}</span>
             </div>
-            <p className={`font-semibold text-sm ${value < 0 ? 'text-red-400' : 'text-white'}`}>{formatCOP(value)}</p>
+            <p className={`text-[1.6rem] font-light tracking-tight leading-none mt-1 ${value < 0 ? 'text-[#ff8fb1]' : 'text-gray-100'}`}>
+              <AnimatedNumber value={value} format={formatCOP} />
+            </p>
           </div>
         ))}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 col-span-2 lg:col-span-1">
-          <div className="flex items-center gap-2 mb-1 text-yellow-400">
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 col-span-2 lg:col-span-1 glow-hover">
+          <div className="flex items-center gap-2 mb-1 text-[#f5c97a]">
             <Target size={16} />
-            <span className="text-xs text-gray-400">Tasa de ahorro</span>
+            <span className="label-caps !text-[10px]">Tasa de ahorro</span>
           </div>
-          <p className="font-semibold text-sm text-white">
-            {stats?.savings_rate ?? 0}%
+          <p className="text-[1.6rem] font-light tracking-tight leading-none mt-1 text-gray-100">
+            <AnimatedNumber value={stats?.savings_rate ?? 0} format={(n) => `${n.toFixed(1)}%`} />
             <span className="text-[11px] font-normal text-gray-500 ml-1">
               {(stats?.savings_rate ?? 0) >= 20 ? '· ¡Bien!' : '· meta: 20%'}
             </span>
@@ -164,7 +167,7 @@ export default function FinancePage() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
+      <div className="grid lg:grid-cols-3 gap-4 stagger">
         {/* Regla 50/30/20 */}
         <Card title="Regla 50 / 30 / 20">
           {!stats?.income ? (
@@ -177,7 +180,7 @@ export default function FinancePage() {
                   <div key={r.label}>
                     <div className="flex justify-between gap-2 text-xs mb-1">
                       <span className="text-gray-300">{r.label}</span>
-                      <span className={`shrink-0 ${off ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      <span className={`shrink-0 ${off ? 'text-[#f5c97a]' : 'text-[#98ffe8]'}`}>
                         {r.value}% <span className="text-gray-500">/ {r.max ? 'máx' : 'mín'} {r.target}%</span>
                       </span>
                     </div>
@@ -219,7 +222,7 @@ export default function FinancePage() {
             <span className="flex items-center gap-2">
               Presupuesto del mes
               {overBudget > 0 && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-red-400"><AlertTriangle size={11} /> {overBudget} excedido{overBudget > 1 ? 's' : ''}</span>
+                <span className="inline-flex items-center gap-1 text-[10px] normal-case tracking-normal text-[#ff8fb1]"><AlertTriangle size={11} /> {overBudget} excedido{overBudget > 1 ? 's' : ''}</span>
               )}
             </span>
           }
@@ -242,9 +245,9 @@ export default function FinancePage() {
                   <div key={b.id}>
                     <div className="flex justify-between text-xs mb-1">
                       <span className="text-gray-300">{b.category}</span>
-                      <span className={pct > 100 ? 'text-red-400' : pct > 80 ? 'text-amber-400' : 'text-gray-400'}>{pct}%</span>
+                      <span className={pct > 100 ? 'text-[#ff8fb1]' : pct > 80 ? 'text-[#f5c97a]' : 'text-gray-400'}>{pct}%</span>
                     </div>
-                    <ProgressBar value={pct} color={pct > 80 ? '#f59e0b' : '#10b981'} over={pct > 100} />
+                    <ProgressBar value={pct} color={pct > 80 ? '#f5c97a' : '#98ffe8'} over={pct > 100} />
                     <p className="text-[11px] text-gray-500 mt-0.5">
                       {formatCOP(b.spent)} de {formatCOP(b.amount)}
                       {b.spent <= b.amount && ` · quedan ${formatCOP(b.amount - b.spent)}`}
@@ -262,14 +265,22 @@ export default function FinancePage() {
         {trendData.some((t) => t.Ingresos || t.Gastos || t.Ahorro) ? (
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={trendData} margin={{ left: -10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(120,150,255,0.1)" vertical={false} />
               <XAxis dataKey="name" stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} />
               <YAxis stroke="#6b7280" fontSize={11} tickFormatter={compact} tickLine={false} axisLine={false} />
               <Tooltip formatter={(v) => formatCOP(Number(v) || 0)} cursor={{ fill: '#ffffff08' }} {...tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Gastos" fill="#ef4444" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Ahorro" fill="#06b6d4" radius={[4, 4, 0, 0]} />
+              <defs>
+                {[['gIn', '#98ffe8'], ['gOut', '#ff7aa8'], ['gSav', '#9aa5f0']].map(([id, c]) => (
+                  <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor={c} stopOpacity={0.95} />
+                    <stop offset="1" stopColor={c} stopOpacity={0.15} />
+                  </linearGradient>
+                ))}
+              </defs>
+              <Bar dataKey="Ingresos" fill="url(#gIn)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="Gastos" fill="url(#gOut)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="Ahorro" fill="url(#gSav)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
@@ -277,7 +288,7 @@ export default function FinancePage() {
         )}
       </Card>
 
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid lg:grid-cols-2 gap-4 stagger">
         {/* Metas */}
         <Card title="Metas de ahorro" action={<button onClick={() => setModal({ kind: 'goal' })} className="text-xs text-indigo-400 hover:text-indigo-300">+ Nueva meta</button>}>
           <div className="space-y-4">
@@ -337,7 +348,7 @@ export default function FinancePage() {
               </div>
               <div className="bg-gray-800/60 rounded-lg p-2">
                 <span className="text-gray-400">Deuda en tarjetas</span>
-                <p className={`font-medium ${totalDebt > 0 ? 'text-red-400' : 'text-white'}`}>{formatCOP(totalDebt)}</p>
+                <p className={`font-medium ${totalDebt > 0 ? 'text-[#ff8fb1]' : 'text-white'}`}>{formatCOP(totalDebt)}</p>
               </div>
             </div>
           )}
@@ -368,7 +379,7 @@ export default function FinancePage() {
                   </div>
                   {usage !== null && (
                     <div className="mt-2">
-                      <ProgressBar value={usage} color={usage > 30 ? '#f59e0b' : '#10b981'} over={usage > 90} />
+                      <ProgressBar value={usage} color={usage > 30 ? '#f5c97a' : '#98ffe8'} over={usage > 90} />
                       <p className="text-[11px] text-gray-500 mt-0.5">
                         Usas {usage}% del cupo {usage > 30 && '· ideal: menos del 30%'}
                       </p>
@@ -407,7 +418,7 @@ export default function FinancePage() {
                   </p>
                 </div>
               </div>
-              <span className="text-sm font-medium shrink-0 ml-2" style={{ color: t.type === 'INCOME' ? '#34d399' : t.type === 'SAVINGS' ? '#22d3ee' : '#f87171' }}>
+              <span className="text-sm font-medium shrink-0 ml-2" style={{ color: t.type === 'INCOME' ? '#98ffe8' : t.type === 'SAVINGS' ? '#9aa5f0' : '#ff8fb1' }}>
                 {TX_TYPES[t.type].sign}{formatCOP(t.amount)}
               </span>
             </button>
