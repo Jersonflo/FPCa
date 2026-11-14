@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import ReactFlow, {
   Background,
   Controls,
@@ -22,6 +22,7 @@ const statusColors = {
   ACTIVE: '#10b981',
   INACTIVE: '#6b7280',
   PAUSED: '#f59e0b',
+  COMPLETED: '#3b82f6',
   ARCHIVED: '#ef4444',
 }
 
@@ -29,6 +30,7 @@ const statusLabels = {
   ACTIVE: 'Activo / Online',
   INACTIVE: 'Inactivo',
   PAUSED: 'Pausado',
+  COMPLETED: 'Terminado',
   ARCHIVED: 'Archivado',
 }
 
@@ -137,8 +139,8 @@ export default function ProjectsPage() {
     queryFn: () => apiFetch('/api/projects'),
   })
 
-  const projects: Project[] = data?.projects || (Array.isArray(data) ? data : [])
-  const connections = data?.connections || []
+  const projects: Project[] = useMemo(() => data?.projects || (Array.isArray(data) ? data : []), [data])
+  const connections = useMemo(() => data?.connections || [], [data])
 
   // Guardar posicion al terminar de mover un nodo
   const onNodeDragStop = useCallback(
@@ -254,6 +256,8 @@ export default function ProjectsPage() {
             <option value="ACTIVE">🟢 Solo Activos</option>
             <option value="PAUSED">🟡 Solo Pausados</option>
             <option value="INACTIVE">⚪ Solo Inactivos</option>
+            <option value="COMPLETED">🔵 Solo Terminados</option>
+            <option value="ARCHIVED">🔴 Solo Archivados</option>
           </select>
 
           <button

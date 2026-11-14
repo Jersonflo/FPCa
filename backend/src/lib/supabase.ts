@@ -1,10 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
-import dotenv from 'dotenv'
+import { config } from './config'
 
-dotenv.config()
-
-export const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
-)
-
+// Cliente con service_role: SOLO se usa en el servidor, nunca en el frontend.
+export const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+})

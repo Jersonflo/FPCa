@@ -1,16 +1,26 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { API_URL } from '../lib/api'
+import { API_URL, hasValidToken } from '../lib/api'
+
+const ERRORS: Record<string, string> = {
+  forbidden: 'Esta cuenta de Google no tiene acceso a este dashboard.',
+  session: 'Tu sesión expiró. Vuelve a entrar.',
+  google_reauth: 'Google pidió volver a autorizar el acceso al calendario.',
+  invalid_state: 'El inicio de sesión no se pudo validar. Intenta de nuevo.',
+  auth_failed: 'No se pudo iniciar sesión con Google. Intenta de nuevo.',
+}
 
 export default function LoginPage() {
   const navigate = useNavigate()
 
   useEffect(() => {
     // Si ya hay token (guardado en App.tsx), redirigir directamente
-    if (localStorage.getItem('auth_token')) {
+    if (hasValidToken()) {
       navigate('/projects', { replace: true })
     }
   }, [navigate])
+
+  const error = new URLSearchParams(window.location.hash.slice(1)).get('error')
 
   const handleLogin = () => {
     window.location.href = `${API_URL}/auth/google`
@@ -24,6 +34,11 @@ export default function LoginPage() {
         <p className="text-gray-400 text-sm mb-8">
           Gestiona tus proyectos, calendario y finanzas en un solo lugar.
         </p>
+        {error && (
+          <p className="mb-4 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            {ERRORS[error] || 'Ocurrió un error al iniciar sesión.'}
+          </p>
+        )}
         <button
           onClick={handleLogin}
           className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors"

@@ -1,19 +1,17 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { Network, Calendar, Wallet, LogOut } from 'lucide-react'
+import { Suspense } from 'react'
+import { Outlet, NavLink } from 'react-router-dom'
+import { Network, Calendar, Wallet, LogOut, SquareKanban } from 'lucide-react'
+import { logout } from '../lib/api'
 
 const navItems = [
   { to: '/projects', icon: Network, label: 'Proyectos' },
+  { to: '/tasks', icon: SquareKanban, label: 'Tareas' },
   { to: '/calendar', icon: Calendar, label: 'Calendario' },
   { to: '/finance', icon: Wallet, label: 'Finanzas' },
 ]
 
 export default function Layout() {
-  const navigate = useNavigate()
-
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token')
-    navigate('/login')
-  }
+  const handleLogout = () => logout()
 
   return (
     <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
@@ -51,12 +49,14 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <Outlet />
+      <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        <Suspense fallback={<div className="p-6 text-sm text-gray-500">Cargando…</div>}>
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* Bottom nav - mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 flex">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-gray-900 border-t border-gray-800 flex">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}

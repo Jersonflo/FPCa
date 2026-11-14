@@ -6,7 +6,7 @@ export type Project = {
   id: string
   name: string
   description?: string
-  status: 'ACTIVE' | 'INACTIVE' | 'PAUSED' | 'ARCHIVED'
+  status: 'ACTIVE' | 'INACTIVE' | 'PAUSED' | 'COMPLETED' | 'ARCHIVED'
   color: string
   url?: string
   stack: string[]
@@ -25,6 +25,7 @@ const STATUS_OPTIONS = [
   { value: 'ACTIVE', label: '🟢 Activo / Online' },
   { value: 'PAUSED', label: '🟡 Pausado' },
   { value: 'INACTIVE', label: '⚪ Inactivo' },
+  { value: 'COMPLETED', label: '🔵 Terminado' },
   { value: 'ARCHIVED', label: '🔴 Archivado' },
 ]
 
