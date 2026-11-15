@@ -19,6 +19,15 @@ function Loader() {
   )
 }
 
+/** Etiqueta flotante que aparece a la derecha del ícono al pasar el mouse */
+function Tip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full glass px-3 py-1 text-xs text-gray-100 opacity-0 -translate-x-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 z-50">
+      {children}
+    </span>
+  )
+}
+
 export default function Layout() {
   const location = useLocation()
 
@@ -26,39 +35,34 @@ export default function Layout() {
     <div className="flex h-screen text-gray-100 overflow-hidden">
       <PlexusBackground intensity={0.55} />
 
-      {/* Sidebar - desktop */}
-      <aside className="hidden md:flex flex-col w-60 m-3 mr-0 rounded-3xl glass-soft px-3 py-5">
-        <div className="flex items-center gap-3 mb-10 px-2">
-          <img src="/logo.svg" alt="" className="w-9 h-9" />
-          <div className="leading-none">
-            <p className="font-serif text-[26px] text-gray-100">FPCa</p>
-            <p className="label-caps !text-[9px] mt-1">Control personal</p>
-          </div>
-        </div>
+      {/* Riel lateral minimalista (desktop) */}
+      <aside className="hidden md:flex flex-col items-center w-[68px] my-4 ml-4 py-4 rounded-[28px] glass-soft">
+        <NavLink to="/projects" className="group relative mb-8" aria-label="Atlas">
+          <img src="/logo.svg" alt="" className="w-9 h-9 transition-transform duration-500 group-hover:rotate-[8deg]" />
+          <Tip>Atlas</Tip>
+        </NavLink>
 
-        <p className="label-caps px-3 mb-3 !text-[10px]">Menú</p>
-        <nav className="flex-1 space-y-1">
+        <nav className="flex-1 flex flex-col items-center gap-2">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
+              aria-label={label}
               className={({ isActive }) =>
-                `group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm transition-all duration-300 ${
-                  isActive
-                    ? 'bg-white/[0.06] text-gray-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
-                    : 'text-gray-400 hover:text-gray-100 hover:bg-white/[0.03]'
+                `group relative w-11 h-11 flex items-center justify-center rounded-2xl transition-all duration-300 ${
+                  isActive ? 'bg-white/[0.08] text-indigo-400' : 'text-gray-500 hover:text-gray-100 hover:bg-white/[0.04]'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
                   <span
-                    className={`absolute left-0 w-1 h-1 rounded-full bg-indigo-400 transition-all duration-300 ${
-                      isActive ? 'opacity-100 shadow-[0_0_10px_#98ffe8]' : 'opacity-0'
+                    className={`absolute -left-[13px] w-[3px] rounded-full bg-indigo-400 transition-all duration-300 ${
+                      isActive ? 'h-5 opacity-100 shadow-[0_0_12px_#98ffe8]' : 'h-0 opacity-0'
                     }`}
                   />
-                  <Icon size={17} strokeWidth={1.6} className={isActive ? 'text-indigo-400' : ''} />
-                  {label}
+                  <Icon size={19} strokeWidth={1.5} />
+                  <Tip>{label}</Tip>
                 </>
               )}
             </NavLink>
@@ -67,10 +71,11 @@ export default function Layout() {
 
         <button
           onClick={() => logout()}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm text-gray-500 hover:bg-white/[0.03] hover:text-gray-200 transition-colors"
+          aria-label="Cerrar sesión"
+          className="group relative w-11 h-11 flex items-center justify-center rounded-2xl text-gray-600 hover:text-gray-200 hover:bg-white/[0.04] transition-colors"
         >
-          <LogOut size={17} strokeWidth={1.6} />
-          Cerrar sesión
+          <LogOut size={18} strokeWidth={1.5} />
+          <Tip>Cerrar sesión</Tip>
         </button>
       </aside>
 
@@ -83,20 +88,25 @@ export default function Layout() {
         </div>
       </main>
 
-      {/* Bottom nav - mobile */}
-      <nav className="md:hidden fixed bottom-3 left-3 right-3 z-40 glass rounded-full flex px-2">
+      {/* Barra inferior flotante (móvil) */}
+      <nav className="md:hidden fixed bottom-3 left-1/2 -translate-x-1/2 z-40 glass rounded-full flex items-center gap-1 p-1.5">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
+            aria-label={label}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2.5 text-[10px] tracking-wide transition-colors ${
-                isActive ? 'text-indigo-400' : 'text-gray-500'
+              `flex items-center gap-2 h-11 rounded-full transition-all duration-300 ${
+                isActive ? 'bg-white/[0.09] text-indigo-400 px-4' : 'text-gray-500 w-11 justify-center'
               }`
             }
           >
-            <Icon size={19} strokeWidth={1.6} />
-            <span className="mt-1">{label}</span>
+            {({ isActive }) => (
+              <>
+                <Icon size={19} strokeWidth={1.5} />
+                {isActive && <span className="text-xs text-gray-100">{label}</span>}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

@@ -9,6 +9,7 @@ import { projectRoutes } from './routes/projects'
 import { calendarRoutes } from './routes/calendar'
 import { financeRoutes } from './routes/finance'
 import { taskRoutes } from './routes/tasks'
+import { platformRoutes } from './routes/platforms'
 
 export function buildApp() {
   const app = Fastify({ logger: true })
@@ -51,6 +52,7 @@ export function buildApp() {
   app.register(calendarRoutes, { prefix: '/api/calendar' })
   app.register(financeRoutes, { prefix: '/api/finance' })
   app.register(taskRoutes, { prefix: '/api/tasks' })
+  app.register(platformRoutes, { prefix: '/api/platforms' })
 
   app.get('/health', async () => ({ status: 'ok', time: new Date().toISOString() }))
 

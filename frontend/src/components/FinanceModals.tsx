@@ -5,21 +5,7 @@ import {
   CATEGORY_SUGGESTIONS, TX_TYPES, monthsUntil,
   type Budget, type FinanceCard, type Goal, type Transaction, type TxType,
 } from '../lib/finance'
-import { Modal, Field, Input, Select, Button } from './ui'
-
-/** Input de dinero: muestra separadores de miles mientras escribes */
-function MoneyInput({ value, onChange, autoFocus }: { value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
-  const shown = value ? Number(value).toLocaleString('es-CO') : ''
-  return (
-    <Input
-      autoFocus={autoFocus}
-      inputMode="numeric"
-      value={shown}
-      placeholder="0"
-      onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ''))}
-    />
-  )
-}
+import { Modal, Field, Input, Select, Button, MoneyInput } from './ui'
 
 function useSaver(onDone: () => void) {
   const [saving, setSaving] = useState(false)

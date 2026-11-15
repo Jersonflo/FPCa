@@ -13,7 +13,13 @@ export type GoogleEvent = {
   start?: { dateTime?: string; date?: string }
   end?: { dateTime?: string; date?: string }
   recurringEventId?: string
+  calendarId?: string
+  calendarName?: string
+  calendarColor?: string | null
+  readOnly?: boolean
 }
+
+export const calQuery = (e?: GoogleEvent | null) => `?calendarId=${encodeURIComponent(e?.calendarId || 'primary')}`
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const timeOf = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`
@@ -77,7 +83,7 @@ export default function EventModal({
     }
     if (!isEditing && repeat) body.recurrence = [repeat]
     try {
-      if (isEditing) await api.put(`/api/calendar/events/${event!.id}`, body)
+      if (isEditing) await api.put(`/api/calendar/events/${event!.id}${calQuery(event)}`, body)
       else await api.post('/api/calendar/events', body)
       onSaved()
       onClose()
@@ -90,7 +96,7 @@ export default function EventModal({
 
   const remove = async () => {
     if (!event || !confirm(`¿Eliminar "${event.summary}" de Google Calendar?`)) return
-    await api.del(`/api/calendar/events/${event.id}`)
+    await api.del(`/api/calendar/events/${event.id}${calQuery(event)}`)
     onSaved()
     onClose()
   }
@@ -109,6 +115,13 @@ export default function EventModal({
         </>
       }
     >
+      {event?.calendarName && (
+        <p className="flex items-center gap-2 text-xs text-gray-400 -mt-1">
+          <span className="w-2 h-2 rounded-full" style={{ background: event.calendarColor || '#9aa5f0' }} />
+          {event.calendarName}
+          {event.readOnly && <span className="text-gray-500">· solo lectura</span>}
+        </p>
+      )}
       <Field label="Título">
         <Input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Reunión con…" />
       </Field>

@@ -1,22 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Atlas (versión compacta para la pestaña) -->
   <defs>
-    <linearGradient id="bar" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0" stop-color="#6d5dfc"/>
-      <stop offset="1" stop-color="#22d3ee"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1a2336"/>
+      <stop offset="1" stop-color="#0a0d15"/>
     </linearGradient>
-    <linearGradient id="arrow" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#10b981"/>
-      <stop offset=".6" stop-color="#84cc16"/>
-      <stop offset="1" stop-color="#facc15"/>
+    <linearGradient id="line" x1="32" y1="10" x2="32" y2="54" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f0f7ff"/>
+      <stop offset="1" stop-color="#9aa5f0"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#0a1022"/>
-  <!-- Versión simplificada para tamaños pequeños: 3 barras + flecha -->
-  <rect x="10" y="36" width="9" height="18" rx="2.5" fill="url(#bar)"/>
-  <rect x="23" y="27" width="9" height="27" rx="2.5" fill="url(#bar)"/>
-  <rect x="36" y="18" width="9" height="20" rx="2.5" fill="url(#bar)"/>
-  <path d="M9 52l14-13 8 7 16-16" stroke="#0a1022" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M9 52l14-13 8 7 16-16" stroke="url(#arrow)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M56.2 20.8L53 36 41 24z" fill="#0a1022" stroke="#0a1022" stroke-width="4" stroke-linejoin="round"/>
-  <path d="M56.2 20.8L53 36 41 24z" fill="url(#arrow)" stroke="url(#arrow)" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <g stroke="url(#line)" stroke-width="3.6" stroke-linecap="round">
+    <path d="M32 13L16 51M32 13l16 38M21.5 38.5h21"/>
+  </g>
+  <circle cx="32" cy="13" r="5" fill="#98ffe8"/>
+  <circle cx="16" cy="51" r="3.6" fill="#bad7f5"/>
+  <circle cx="48" cy="51" r="3.6" fill="#9aa5f0"/>
 </svg>

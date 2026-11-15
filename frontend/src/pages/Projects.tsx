@@ -18,9 +18,13 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../lib/api'
-import { Plus, ExternalLink } from 'lucide-react'
+import { Plus, ExternalLink, Server } from 'lucide-react'
 import ProjectModal, { type Project } from '../components/ProjectModal'
 import PlexusSphere from '../components/PlexusSphere'
+import { moneyOf, compactCOP } from '../lib/projects'
+import { platformOf, type PlatformAccount, type PlatformDef, type PlatformHub, type ProjectLink } from '../lib/platforms'
+import { HubNode, AccountNode, TetherEdge, LinkEdge, HUB_SIZE, HUB_DISK, ACC_SIZE, ACC_DISK } from '../components/NetworkNodes'
+import AccountModal from '../components/AccountModal'
 
 type Status = Project['status']
 
@@ -39,9 +43,11 @@ const SPHERE = 170
 const seedOf = (id: string) => [...id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 100000, 7)
 
 /** Anillo fino con degradado que gira lento alrededor de la esfera (estilo "dato destacado") */
-function OrbitRing({ id, color, active }: { id: string; color: string; active: boolean }) {
+function OrbitRing({ id, color, active, progress }: { id: string; color: string; active: boolean; progress: number | null }) {
   const r = SPHERE / 2 - 6
   const c = 2 * Math.PI * r
+  // Con monto negociado, el arco muestra el % cobrado; si no, es decorativo
+  const frac = progress !== null ? Math.max(0.015, progress / 100) : 0.62
   return (
     <svg
       width={SPHERE}
@@ -66,11 +72,11 @@ function OrbitRing({ id, color, active }: { id: string; color: string; active: b
         stroke={`url(#ring-${id})`}
         strokeWidth="1.2"
         strokeLinecap="round"
-        strokeDasharray={`${c * 0.62} ${c}`}
+        strokeDasharray={`${c * frac} ${c}`}
         transform={`rotate(-90 ${SPHERE / 2} ${SPHERE / 2})`}
       />
       {/* Satélite en la punta del arco */}
-      <circle cx={SPHERE / 2 + r * Math.cos(Math.PI * 2 * 0.62 - Math.PI / 2)} cy={SPHERE / 2 + r * Math.sin(Math.PI * 2 * 0.62 - Math.PI / 2)} r="2" fill={color} style={{ filter: `drop-shadow(0 0 4px ${color})` }} />
+      <circle cx={SPHERE / 2 + r * Math.cos(Math.PI * 2 * frac - Math.PI / 2)} cy={SPHERE / 2 + r * Math.sin(Math.PI * 2 * frac - Math.PI / 2)} r="2" fill={color} style={{ filter: `drop-shadow(0 0 4px ${color})` }} />
     </svg>
   )
 }
@@ -80,19 +86,21 @@ function PlexusNode({ data }: NodeProps<Project & { index: number }>) {
   const st = STATUS[data.status] || STATUS.INACTIVE
   const density = Math.min(96, 48 + (data.stack?.length || 0) * 5 + (data.accounts?.length || 0) * 4)
   const handle = '!w-2 !h-2 !bg-indigo-400 !border-0 !shadow-[0_0_8px_#98ffe8]'
+  const money = moneyOf(data)
 
   return (
     <div
       className="group relative flex flex-col items-center cursor-pointer animate-node-in"
       style={{ width: NODE_SIZE, animationDelay: `${0.2 + data.index * 0.14}s` }}
     >
+      <Handle id="c" type="target" position={Position.Top} isConnectable={false} style={{ top: SPHERE / 2, left: '50%', opacity: 0, width: 1, height: 1, minWidth: 0, minHeight: 0, border: 0 }} />
       <Handle type="target" position={Position.Top} className={`${handle} !top-3`} />
       <Handle type="source" position={Position.Bottom} className={`${handle} !bottom-16`} />
       <Handle type="target" position={Position.Left} className={`${handle} !left-3 !top-[85px]`} />
       <Handle type="source" position={Position.Right} className={`${handle} !right-3 !top-[85px]`} />
 
       <div className="relative transition-transform duration-700 ease-out group-hover:scale-110" style={{ width: SPHERE, height: SPHERE }}>
-        <OrbitRing id={data.id} color={st.color} active={data.status === 'ACTIVE'} />
+        <OrbitRing id={data.id} color={st.color} active={data.status === 'ACTIVE' && money.pct === null} progress={money.pct} />
         <PlexusSphere
           size={SPHERE}
           color={data.color || '#7fb2ff'}
@@ -127,6 +135,12 @@ function PlexusNode({ data }: NodeProps<Project & { index: number }>) {
           />
           <span className="label-caps !text-[9px]" style={{ color: st.color }}>{st.label}</span>
         </div>
+        {(money.received > 0 || money.agreed !== null) && (
+          <p className="text-[11px] text-gray-400 mt-1 tabular-nums">
+            <span className="text-gray-200">{compactCOP(money.received)}</span>
+            {money.agreed !== null && <span className="text-gray-500"> / {compactCOP(money.agreed)}</span>}
+          </p>
+        )}
 
         {/* Detalles al pasar el mouse */}
         {(data.stack?.length > 0 || data.accounts?.length > 0) && (
@@ -180,8 +194,22 @@ function SynapseEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, t
   )
 }
 
-const nodeTypes = { project: PlexusNode }
-const edgeTypes = { synapse: SynapseEdge }
+const nodeTypes = { project: PlexusNode, hub: HubNode, account: AccountNode }
+const edgeTypes = { synapse: SynapseEdge, tether: TetherEdge, link: LinkEdge }
+
+const ACC = 'acc:'
+const HUB = 'hub:'
+const LAYER_KEY = 'atlas.showPlatforms'
+
+type Conn = { source_id: string; target_id: string }
+type NetworkData = {
+  projects: Project[]
+  connections: Conn[]
+  accounts?: PlatformAccount[]
+  links?: ProjectLink[]
+  hubs?: PlatformHub[]
+  platformsReady?: boolean
+}
 
 export default function ProjectsPage() {
   const queryClient = useQueryClient()
@@ -193,102 +221,207 @@ export default function ProjectsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [accountModal, setAccountModal] = useState<{ account?: PlatformAccount; platform?: string } | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
+  const [showPlatforms, setShowPlatforms] = useState(() => {
+    try {
+      return localStorage.getItem(LAYER_KEY) !== '0'
+    } catch {
+      return true
+    }
+  })
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<NetworkData>({
     queryKey: ['projects'],
     queryFn: () => apiFetch('/api/projects'),
   })
 
-  const projects: Project[] = useMemo(() => data?.projects || (Array.isArray(data) ? data : []), [data])
+  const projects: Project[] = useMemo(() => data?.projects || [], [data])
   const connections = useMemo(() => data?.connections || [], [data])
+  const accounts = useMemo(() => data?.accounts || [], [data])
+  const links = useMemo(() => data?.links || [], [data])
+  const hubs = useMemo(() => data?.hubs || [], [data])
+  const platformsReady = data?.platformsReady !== false
 
+  const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: ['projects'] }), [queryClient])
+
+  const toggleLayer = () => {
+    setShowPlatforms((v) => {
+      try {
+        localStorage.setItem(LAYER_KEY, v ? '0' : '1')
+      } catch {
+        /* sin almacenamiento: solo en memoria */
+      }
+      return !v
+    })
+  }
+
+  // Guardar posición según el tipo de nodo
   const onNodeDragStop = useCallback(async (_: unknown, node: Node) => {
+    const pos = { position_x: Math.round(node.position.x), position_y: Math.round(node.position.y) }
     try {
-      await apiFetch(`/api/projects/${node.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ position_x: Math.round(node.position.x), position_y: Math.round(node.position.y) }),
-      })
+      if (node.id.startsWith(HUB)) {
+        await apiFetch(`/api/platforms/hubs/${node.id.slice(HUB.length)}`, { method: 'PUT', body: JSON.stringify(pos) })
+      } else if (node.id.startsWith(ACC)) {
+        await apiFetch(`/api/platforms/accounts/${node.id.slice(ACC.length)}`, { method: 'PUT', body: JSON.stringify(pos) })
+      } else {
+        await apiFetch(`/api/projects/${node.id}`, { method: 'PUT', body: JSON.stringify(pos) })
+      }
     } catch (err) {
-      console.error('Error al actualizar posición:', err)
+      console.error('Error al guardar posición:', err)
     }
   }, [])
 
+  // Conectar: cuenta ↔ proyecto crea un enlace; proyecto ↔ proyecto crea una conexión
   const onConnect = useCallback(
     async (params: Connection) => {
-      if (!params.source || !params.target || params.source === params.target) return
-      setEdges((eds) => addEdge({ ...params, type: 'synapse' }, eds))
+      const { source, target } = params
+      if (!source || !target || source === target) return
+      const isAcc = (id: string) => id.startsWith(ACC)
+      const isProject = (id: string) => !id.startsWith(ACC) && !id.startsWith(HUB)
       try {
-        await apiFetch('/api/projects/connections', {
-          method: 'POST',
-          body: JSON.stringify({ source_id: params.source, target_id: params.target }),
-        })
+        if (isAcc(source) && isProject(target)) {
+          await apiFetch('/api/platforms/links', { method: 'POST', body: JSON.stringify({ project_id: target, account_id: source.slice(ACC.length) }) })
+        } else if (isAcc(target) && isProject(source)) {
+          await apiFetch('/api/platforms/links', { method: 'POST', body: JSON.stringify({ project_id: source, account_id: target.slice(ACC.length) }) })
+        } else if (isProject(source) && isProject(target)) {
+          setEdges((eds) => addEdge({ ...params, type: 'synapse' }, eds))
+          await apiFetch('/api/projects/connections', { method: 'POST', body: JSON.stringify({ source_id: source, target_id: target }) })
+        } else {
+          return
+        }
+        refresh()
       } catch (err) {
-        console.error('Error al guardar conexión:', err)
+        console.error('Error al conectar:', err)
       }
     },
-    [setEdges]
+    [setEdges, refresh]
   )
 
-  // Clic en una conexión → eliminarla
+  // Clic en una línea → quitarla (las de plataforma → cuenta son fijas)
   const onEdgeClick = useCallback(
     async (_: React.MouseEvent, edge: Edge) => {
-      const s = projects.find((p) => p.id === edge.source)?.name
-      const t = projects.find((p) => p.id === edge.target)?.name
-      if (!confirm(`¿Eliminar la conexión ${s} → ${t}?`)) return
+      if (edge.type === 'tether') return
+      const nameOf = (id: string) =>
+        id.startsWith(ACC) ? accounts.find((a) => ACC + a.id === id)?.name : projects.find((p) => p.id === id)?.name
+      if (!confirm(`¿Quitar la conexión ${nameOf(edge.source)} → ${nameOf(edge.target)}?`)) return
       setEdges((eds) => eds.filter((e) => e.id !== edge.id))
-      await apiFetch(`/api/projects/connections?source_id=${edge.source}&target_id=${edge.target}`, { method: 'DELETE' })
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      if (edge.type === 'link') {
+        await apiFetch(`/api/platforms/links?project_id=${edge.target}&account_id=${edge.source.slice(ACC.length)}`, { method: 'DELETE' })
+      } else {
+        await apiFetch(`/api/projects/connections?source_id=${edge.source}&target_id=${edge.target}`, { method: 'DELETE' })
+      }
+      refresh()
     },
-    [projects, setEdges, queryClient]
+    [projects, accounts, setEdges, refresh]
   )
 
-  // Clic en un nodo → la cámara viaja hacia él y luego se abre el detalle
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node<Project>) => {
-    const cx = node.position.x + NODE_SIZE / 2
-    const cy = node.position.y + SPHERE / 2
-    rf.current?.setCenter(cx, cy, { zoom: 1.6, duration: 750 })
-    setTimeout(() => {
-      setSelectedProject(projects.find((p) => p.id === node.id) || null)
-      setIsModalOpen(true)
-    }, 680)
-  }, [projects])
+  // Clic en un nodo → la cámara viaja hacia él y abre su detalle
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      const w = node.width || NODE_SIZE
+      rf.current?.setCenter(node.position.x + w / 2, node.position.y + (node.height || SPHERE) / 3, { zoom: 1.5, duration: 750 })
+      setTimeout(() => {
+        if (node.id.startsWith(HUB)) {
+          setAccountModal({ platform: node.id.slice(HUB.length) })
+        } else if (node.id.startsWith(ACC)) {
+          setAccountModal({ account: accounts.find((a) => ACC + a.id === node.id) })
+        } else {
+          setSelectedProject(projects.find((p) => p.id === node.id) || null)
+          setIsModalOpen(true)
+        }
+      }, 650)
+    },
+    [projects, accounts]
+  )
 
   useEffect(() => {
     const filtered = filterStatus === 'ALL' ? projects : projects.filter((p) => p.status === filterStatus)
-    setNodes(
-      filtered.map((p, i) => ({
-        id: p.id,
-        type: 'project',
-        position: { x: p.position_x ?? (i % 3) * 300 + 80, y: p.position_y ?? Math.floor(i / 3) * 280 + 80 },
-        data: { ...p, index: i },
-      }))
-    )
+    const projectNodes: Node[] = filtered.map((p, i) => ({
+      id: p.id,
+      type: 'project',
+      position: { x: p.position_x ?? (i % 3) * 320 + 80, y: p.position_y ?? Math.floor(i / 3) * 300 + 80 },
+      data: { ...p, index: i },
+    }))
     const visible = new Set(filtered.map((p) => p.id))
-    setEdges(
-      connections
-        .filter((c: { source_id: string; target_id: string }) => visible.has(c.source_id) && visible.has(c.target_id))
-        .map((c: { source_id: string; target_id: string }) => ({
-          id: `e-${c.source_id}-${c.target_id}`,
-          source: c.source_id,
-          target: c.target_id,
-          type: 'synapse',
-        }))
-    )
-  }, [projects, connections, filterStatus, setNodes, setEdges])
+    const newEdges: Edge[] = connections
+      .filter((c) => visible.has(c.source_id) && visible.has(c.target_id))
+      .map((c) => ({ id: `e-${c.source_id}-${c.target_id}`, source: c.source_id, target: c.target_id, type: 'synapse' }))
+
+    const platformNodes: Node[] = []
+    if (showPlatforms && accounts.length) {
+      // Ubicación inicial (si aún no las has movido): plataformas en un anillo alrededor
+      // de los proyectos y sus cuentas en abanico hacia el centro → forma de red neuronal
+      const pts = projectNodes.map((n) => ({ x: n.position.x + NODE_SIZE / 2, y: n.position.y + SPHERE / 2 }))
+      const cx = pts.length ? pts.reduce((s, p) => s + p.x, 0) / pts.length : 0
+      const cy = pts.length ? pts.reduce((s, p) => s + p.y, 0) / pts.length : 0
+      const spanX = pts.length ? Math.max(...pts.map((p) => Math.abs(p.x - cx))) : 0
+      const spanY = pts.length ? Math.max(...pts.map((p) => Math.abs(p.y - cy))) : 0
+
+      const byPlatform = new Map<string, PlatformAccount[]>()
+      for (const a of accounts) byPlatform.set(a.platform, [...(byPlatform.get(a.platform) || []), a])
+      const hubPos = new Map(hubs.map((h) => [h.platform, { x: h.position_x, y: h.position_y }]))
+      const H = byPlatform.size
+      const rx = spanX + 560
+      const ry = spanY + 380
+
+      let hubIndex = 0
+      byPlatform.forEach((list, key) => {
+        const def = platformOf(key)
+        const theta = Math.PI + (H === 1 ? 0 : (hubIndex / H) * Math.PI * 2) + 0.35
+        const hcx = cx + Math.cos(theta) * rx
+        const hcy = cy + Math.sin(theta) * ry
+        const hp = hubPos.get(key) || { x: hcx - HUB_SIZE / 2, y: hcy - HUB_DISK / 2 }
+        platformNodes.push({ id: HUB + key, type: 'hub', position: hp, data: { platform: def, count: list.length, index: hubIndex } })
+
+        // Dirección hacia el centro de la red
+        const hubC = { x: hp.x + HUB_SIZE / 2, y: hp.y + HUB_DISK / 2 }
+        const toCenter = Math.atan2(cy - hubC.y, cx - hubC.x)
+        list.forEach((a, j) => {
+          const spread = list.length > 1 ? (j / (list.length - 1) - 0.5) * 1.3 : 0
+          const ang = toCenter + spread
+          const pos = a.position_x != null && a.position_y != null
+            ? { x: a.position_x, y: a.position_y }
+            : { x: hubC.x + Math.cos(ang) * 210 - ACC_SIZE / 2, y: hubC.y + Math.sin(ang) * 210 - ACC_DISK / 2 }
+          const uses = links.filter((l) => l.account_id === a.id).length
+          platformNodes.push({ id: ACC + a.id, type: 'account', position: pos, data: { account: a, platform: def, uses, index: j } })
+          newEdges.push({ id: `t-${key}-${a.id}`, source: HUB + key, sourceHandle: 'c', target: ACC + a.id, targetHandle: 'c', type: 'tether', data: { color: def.color } })
+        })
+        hubIndex++
+      })
+
+      for (const l of links) {
+        const acc = accounts.find((a) => a.id === l.account_id)
+        if (!acc || !visible.has(l.project_id)) continue
+        newEdges.push({
+          id: `l-${l.account_id}-${l.project_id}`,
+          source: ACC + l.account_id,
+          sourceHandle: 'c',
+          target: l.project_id,
+          targetHandle: 'c',
+          type: 'link',
+          data: { color: platformOf(acc.platform).color },
+        })
+      }
+    }
+
+    setNodes([...platformNodes, ...projectNodes])
+    setEdges(newEdges)
+  }, [projects, connections, accounts, links, hubs, filterStatus, showPlatforms, setNodes, setEdges])
 
   // Intro cinematográfica: arranca lejos y la cámara se acerca a la red
   useEffect(() => {
     if (introDone.current || !rfReady || nodes.length === 0) return
     introDone.current = true
-    // Espera a que React Flow mida los nodos antes de mover la cámara
-    const t = setTimeout(() => rf.current?.fitView({ padding: 0.35, duration: 1800, maxZoom: 1.1 }), 80)
+    const t = setTimeout(() => rf.current?.fitView({ padding: 0.25, duration: 1800, maxZoom: 1.1 }), 80)
     return () => clearTimeout(t)
   }, [rfReady, nodes.length])
 
+  const backToOverview = () => rf.current?.fitView({ padding: 0.25, duration: 900, maxZoom: 1.1 })
+
   const closeModal = () => {
     setIsModalOpen(false)
-    rf.current?.fitView({ padding: 0.35, duration: 900, maxZoom: 1.1 })
+    backToOverview()
   }
 
   const openNewProject = () => {
@@ -296,11 +429,24 @@ export default function ProjectsPage() {
     setIsModalOpen(true)
   }
 
+  const totals = useMemo(() => {
+    let received = 0, pending = 0
+    for (const p of projects) {
+      const m = moneyOf(p)
+      received += m.received
+      pending += m.pending || 0
+    }
+    return { received, pending }
+  }, [projects])
+
   const counts = useMemo(() => {
     const c: Record<string, number> = {}
     projects.forEach((p) => (c[p.status] = (c[p.status] || 0) + 1))
     return c
   }, [projects])
+
+  const platformCount = new Set(accounts.map((a) => a.platform)).size
+  const isEmpty = projects.length === 0 && accounts.length === 0
 
   return (
     <div className="h-full flex flex-col">
@@ -308,7 +454,7 @@ export default function ProjectsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3 p-5 md:px-8 md:pt-8">
         <div className="animate-rise">
           <p className="label-caps mb-2">Tu ecosistema</p>
-          <h2 className="text-gradient">Red de <em className="italic">proyectos</em></h2>
+          <h2 className="text-gradient">Red de <span className="text-accent-gradient font-normal">proyectos</span></h2>
           <div className="flex flex-wrap items-center gap-2 mt-4">
             {(Object.keys(STATUS) as Status[])
               .filter((s) => counts[s])
@@ -324,6 +470,18 @@ export default function ProjectsPage() {
                   {counts[s]} {counts[s] === 1 ? STATUS[s].label.toLowerCase() : STATUS[s].plural}
                 </button>
               ))}
+            {accounts.length > 0 && (
+              <button
+                onClick={toggleLayer}
+                className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border transition-all ${
+                  showPlatforms ? 'border-gray-700 bg-white/[0.07] text-gray-100' : 'border-gray-800 bg-gray-900 text-gray-500 hover:text-gray-100'
+                }`}
+                title={showPlatforms ? 'Ocultar plataformas' : 'Mostrar plataformas'}
+              >
+                <Server size={11} className={showPlatforms ? 'text-indigo-400' : ''} />
+                {platformCount} plataforma{platformCount === 1 ? '' : 's'} · {accounts.length} cuenta{accounts.length === 1 ? '' : 's'}
+              </button>
+            )}
             {filterStatus !== 'ALL' && (
               <button onClick={() => setFilterStatus('ALL')} className="text-[11px] text-indigo-400 hover:text-indigo-300">
                 Ver todos
@@ -332,13 +490,43 @@ export default function ProjectsPage() {
           </div>
         </div>
 
-        <button
-          onClick={openNewProject}
-          className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-sm font-medium px-5 py-2.5 rounded-full transition-all animate-rise"
-        >
-          <Plus size={16} /> Nuevo proyecto
-        </button>
+        <div className="flex items-end gap-6 animate-rise">
+          {(totals.received > 0 || totals.pending > 0) && (
+            <div className="hidden lg:flex items-end gap-6 pr-6 border-r border-gray-800">
+              <div>
+                <p className="label-caps !text-[9px]">Cobrado</p>
+                <p className="text-xl font-light tracking-tight text-gray-100 tabular-nums">{compactCOP(totals.received)}</p>
+              </div>
+              <div>
+                <p className="label-caps !text-[9px]">Por cobrar</p>
+                <p className="text-xl font-light tracking-tight text-[#f5c97a] tabular-nums">{compactCOP(totals.pending)}</p>
+              </div>
+            </div>
+          )}
+          <div className="flex gap-2">
+            {platformsReady && (
+              <button
+                onClick={() => setAccountModal({})}
+                className="flex items-center gap-1.5 bg-white/[0.04] hover:bg-white/[0.08] border border-gray-800 text-gray-200 text-sm font-medium px-4 py-2.5 rounded-full transition-all"
+              >
+                <Server size={15} /> Plataforma
+              </button>
+            )}
+            <button
+              onClick={openNewProject}
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-sm font-medium px-5 py-2.5 rounded-full transition-all"
+            >
+              <Plus size={16} /> Proyecto
+            </button>
+          </div>
+        </div>
       </div>
+
+      {!platformsReady && (
+        <p className="mx-5 md:mx-8 -mt-1 mb-2 text-xs text-[#f5c97a] bg-[#f5c97a]/10 border border-[#f5c97a]/20 rounded-2xl px-4 py-2">
+          Para ver plataformas y cuentas como nodos, ejecuta <code>backend/supabase-migration-2026-11-16.sql</code> en Supabase.
+        </p>
+      )}
 
       {/* Lienzo */}
       <div className="flex-1 relative min-h-[420px]">
@@ -347,12 +535,12 @@ export default function ProjectsPage() {
             <PlexusSphere size={140} speed={2} />
             <span className="text-sm">Conectando la red…</span>
           </div>
-        ) : projects.length === 0 ? (
+        ) : isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-4 animate-rise">
             <PlexusSphere size={240} speed={0.8} color="#7fb2ff" />
-            <p className="font-serif text-3xl text-gray-100 mt-2">Tu red está esperando su primera neurona</p>
+            <p className="text-3xl font-light tracking-tight text-gray-100 mt-2">Tu red está esperando su primera neurona</p>
             <p className="text-sm text-gray-400 mt-1 max-w-sm">
-              Crea un proyecto y conéctalo con otros para ver cómo se relaciona todo lo que construyes.
+              Crea un proyecto y conéctalo con las plataformas que usa (Supabase, Vercel, GitHub…).
             </p>
             <button
               onClick={openNewProject}
@@ -378,7 +566,7 @@ export default function ProjectsPage() {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultViewport={{ x: 0, y: 0, zoom: 0.2 }}
-            minZoom={0.15}
+            minZoom={0.12}
             maxZoom={2.5}
             nodeDragThreshold={4}
             proOptions={{ hideAttribution: true }}
@@ -387,16 +575,18 @@ export default function ProjectsPage() {
             <MiniMap
               pannable
               zoomable
-              nodeColor={() => 'rgba(186,215,245,0.45)'}
+              nodeColor={(n) =>
+                n.type === 'hub' ? (n.data as { platform: PlatformDef }).platform.color : n.type === 'account' ? 'rgba(186,215,245,0.25)' : 'rgba(186,215,245,0.5)'
+              }
               nodeBorderRadius={50}
               maskColor="rgba(10, 13, 21, 0.7)"
               className="hidden md:block"
             />
           </ReactFlow>
         )}
-        {projects.length > 1 && (
-          <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-gray-500 hidden md:block">
-            Arrastra desde el borde de una esfera a otra para conectarlas · clic en una conexión para quitarla
+        {!isEmpty && (
+          <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-gray-500 hidden md:block text-center">
+            Arrastra desde el punto de una cuenta o el borde de una esfera hasta un proyecto para conectarlos · clic en una línea para quitarla
           </p>
         )}
       </div>
@@ -404,8 +594,23 @@ export default function ProjectsPage() {
       {isModalOpen && (
         <ProjectModal
           project={selectedProject}
+          platformAccounts={platformsReady ? accounts : undefined}
+          links={links}
           onClose={closeModal}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['projects'] })}
+          onSuccess={refresh}
+        />
+      )}
+      {accountModal && (
+        <AccountModal
+          account={accountModal.account}
+          defaultPlatform={accountModal.platform}
+          projects={projects}
+          links={links}
+          onClose={() => {
+            setAccountModal(null)
+            backToOverview()
+          }}
+          onSaved={refresh}
         />
       )}
     </div>

@@ -25,6 +25,21 @@ ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_status_check;
 ALTER TABLE projects ADD CONSTRAINT projects_status_check
   CHECK (status IN ('ACTIVE', 'PAUSED', 'INACTIVE', 'COMPLETED', 'ARCHIVED'));
 
+-- Dinero del proyecto (independiente de Finanzas):
+--   agreed_amount = en cuánto se negoció/vendió (opcional)
+--   project_payments = cada pago recibido
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS agreed_amount NUMERIC(14,2);
+
+CREATE TABLE IF NOT EXISTS project_payments (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  project_id  UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  amount      NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+  paid_at     DATE NOT NULL DEFAULT CURRENT_DATE,
+  note        TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_project_payments_project ON project_payments(project_id);
+
 -- Cuentas vinculadas a proyectos
 CREATE TABLE IF NOT EXISTS accounts (
   id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -43,6 +58,30 @@ CREATE TABLE IF NOT EXISTS project_connections (
   label       TEXT,
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(source_id, target_id)
+);
+
+-- ─── PLATAFORMAS Y CUENTAS (nodos de la red) ─────────────────
+CREATE TABLE IF NOT EXISTS platform_accounts (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  platform    TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  username    TEXT,
+  url         TEXT,
+  notes       TEXT,
+  position_x  FLOAT,
+  position_y  FLOAT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS project_platform_links (
+  project_id  UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  account_id  UUID NOT NULL REFERENCES platform_accounts(id) ON DELETE CASCADE,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (project_id, account_id)
+);
+CREATE TABLE IF NOT EXISTS platform_hubs (
+  platform    TEXT PRIMARY KEY,
+  position_x  FLOAT NOT NULL,
+  position_y  FLOAT NOT NULL
 );
 
 -- ─── TAREAS (tablero tipo Trello) ────────────────────────────
@@ -153,6 +192,10 @@ CREATE TRIGGER tasks_updated_at
 ALTER TABLE projects            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE accounts            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE project_payments    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_accounts      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE project_platform_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_hubs          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cards               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions        ENABLE ROW LEVEL SECURITY;

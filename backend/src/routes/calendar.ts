@@ -39,18 +39,57 @@ function toGoogleEvent(body: EventBody): calendar_v3.Schema$Event {
 
 export async function calendarRoutes(app: FastifyInstance) {
   // GET /api/calendar/events?start=&end=
+  // Junta los eventos de TODOS los calendarios visibles de la cuenta (principal, compartidos, festivos…)
   app.get('/events', async (req) => {
     const { start, end } = req.query as { start?: string; end?: string }
     const calendar = await calendarFor(req)
-    const { data } = await calendar.events.list({
-      calendarId: 'primary',
-      timeMin: start || new Date().toISOString(),
-      timeMax: end,
-      maxResults: 250,
-      singleEvents: true,
-      orderBy: 'startTime',
-    })
-    return data.items || []
+
+    type Cal = { id: string; name: string; color?: string | null; writable: boolean; primary: boolean }
+    let cals: Cal[] = [{ id: 'primary', name: 'Principal', color: null, writable: true, primary: true }]
+    try {
+      const { data } = await calendar.calendarList.list({ minAccessRole: 'reader', maxResults: 50 })
+      const visible = (data.items || []).filter((c) => c.id && c.selected !== false && !c.hidden)
+      if (visible.length) {
+        cals = visible.map((c) => ({
+          id: c.id!,
+          name: c.summaryOverride || c.summary || c.id!,
+          color: c.backgroundColor,
+          writable: c.accessRole === 'owner' || c.accessRole === 'writer',
+          primary: Boolean(c.primary),
+        }))
+      }
+    } catch (err) {
+      // Sesión de Google vencida → que el usuario vuelva a entrar
+      if ((err as { response?: { data?: { error?: string } } }).response?.data?.error === 'invalid_grant') throw err
+      // Sin el permiso nuevo (sesión antigua) → solo el calendario principal
+      req.log.warn('No se pudo listar calendarios; usando solo el principal')
+    }
+
+    const lists = await Promise.all(
+      cals.map(async (c) => {
+        try {
+          const { data } = await calendar.events.list({
+            calendarId: c.id,
+            timeMin: start || new Date().toISOString(),
+            timeMax: end,
+            maxResults: 250,
+            singleEvents: true,
+            orderBy: 'startTime',
+          })
+          return (data.items || []).map((e) => ({
+            ...e,
+            calendarId: c.primary ? 'primary' : c.id,
+            calendarName: c.name,
+            calendarColor: c.color,
+            readOnly: !c.writable,
+          }))
+        } catch (err) {
+          if (c.primary) throw err
+          return []
+        }
+      })
+    )
+    return lists.flat()
   })
 
   app.post('/events', async (req, reply) => {
@@ -65,9 +104,10 @@ export async function calendarRoutes(app: FastifyInstance) {
 
   app.put('/events/:id', async (req) => {
     const { id } = req.params as { id: string }
+    const { calendarId = 'primary' } = req.query as { calendarId?: string }
     const calendar = await calendarFor(req)
     const { data } = await calendar.events.patch({
-      calendarId: 'primary',
+      calendarId,
       eventId: id,
       requestBody: toGoogleEvent(req.body as EventBody),
     })
@@ -76,8 +116,9 @@ export async function calendarRoutes(app: FastifyInstance) {
 
   app.delete('/events/:id', async (req) => {
     const { id } = req.params as { id: string }
+    const { calendarId = 'primary' } = req.query as { calendarId?: string }
     const calendar = await calendarFor(req)
-    await calendar.events.delete({ calendarId: 'primary', eventId: id })
+    await calendar.events.delete({ calendarId, eventId: id })
     return { success: true }
   })
 }

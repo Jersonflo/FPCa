@@ -29,7 +29,7 @@ export function Modal({
         className={`glass w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'} rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col animate-modal-in`}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-          <h3 className="font-serif text-2xl text-gray-100 leading-none">{title}</h3>
+          <h3 className="text-xl font-light tracking-tight text-gray-100 leading-none">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-lg" aria-label="Cerrar">
             <X size={18} />
           </button>
@@ -104,5 +104,19 @@ export function ProgressBar({ value, color = '#6366f1', over }: { value: number;
         }}
       />
     </div>
+  )
+}
+
+/** Input de dinero: muestra separadores de miles mientras escribes */
+export function MoneyInput({ value, onChange, autoFocus }: { value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
+  const shown = value ? Number(value).toLocaleString('es-CO') : ''
+  return (
+    <Input
+      autoFocus={autoFocus}
+      inputMode="numeric"
+      value={shown}
+      placeholder="0"
+      onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ''))}
+    />
   )
 }

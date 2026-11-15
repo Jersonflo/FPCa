@@ -34,9 +34,9 @@ export default function LoginPage() {
       <header className="flex items-center justify-between px-6 md:px-16 pt-8 animate-[fade-in_1s_0.2s_both]">
         <div className="flex items-center gap-3">
           <img src="/logo.svg" alt="" className="w-9 h-9" />
-          <span className="label-caps !text-gray-200 !tracking-[0.3em]">FPCa</span>
+          <span className="font-serif text-2xl text-gray-100">Atlas</span>
         </div>
-        <span className="label-caps hidden sm:block">Centro de control personal</span>
+        <span className="label-caps hidden sm:block">Tu mapa personal</span>
       </header>
 
       {/* Hero */}

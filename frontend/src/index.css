@@ -76,14 +76,14 @@ html {
 }
 
 /* ─── Tipografía editorial ──────────────────────────────────── */
-/* Títulos de página: serif elegante con degradado hielo → lavanda */
+/* Títulos de página: sans fina y grande (estilo "display" moderno) con degradado hielo → lavanda */
 .text-gradient {
-  font-family: var(--font-serif);
-  font-weight: 400 !important;
-  font-size: clamp(2rem, 3.2vw, 2.75rem) !important;
-  line-height: 1.05 !important;
-  letter-spacing: -0.01em;
-  background: linear-gradient(95deg, #eef4fb 0%, #bad7f5 45%, #9aa5f0 100%);
+  font-family: var(--font-sans);
+  font-weight: 300 !important;
+  font-size: clamp(1.9rem, 3vw, 2.6rem) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.035em;
+  background: linear-gradient(95deg, #eef4fb 0%, #bad7f5 50%, #9aa5f0 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -226,9 +226,9 @@ html {
 }
 .fc .fc-toolbar-title {
   color: #eef4fb;
-  font-family: var(--font-serif);
-  font-weight: 400;
-  font-size: 1.6rem;
+  font-weight: 300;
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
 }
 .fc .fc-toolbar-title::first-letter {
   text-transform: uppercase;

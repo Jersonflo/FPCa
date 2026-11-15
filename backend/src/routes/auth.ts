@@ -8,6 +8,8 @@ const SCOPES = [
   'email',
   'profile',
   'https://www.googleapis.com/auth/calendar.events',
+  // Para listar TODOS tus calendarios (no solo el principal)
+  'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
 ]
 
 const frontendUrl = () => config.frontendUrls[0]

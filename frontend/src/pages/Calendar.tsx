@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, CalendarClock, ListTodo, AlertTriangle } from 'lucide-react'
 import { api, toDateKey, formatDate } from '../lib/api'
 import { PRIORITIES, dueState, DUE_STYLES, type Task } from '../lib/tasks'
-import EventModal, { type GoogleEvent } from '../components/EventModal'
+import EventModal, { calQuery, type GoogleEvent } from '../components/EventModal'
 import TaskModal from '../components/TaskModal'
 import { Modal, Button } from '../components/ui'
 
@@ -45,6 +45,10 @@ export default function CalendarPage() {
           start: e.start?.dateTime || e.start?.date,
           end: e.end?.dateTime || e.end?.date,
           allDay: !e.start?.dateTime,
+          backgroundColor: (e.calendarColor || '#9aa5f0') + '33',
+          borderColor: e.calendarColor || '#9aa5f0',
+          textColor: '#eef4fb',
+          editable: !e.readOnly,
           extendedProps: { kind: 'event', raw: e },
         })
       }
@@ -77,6 +81,13 @@ export default function CalendarPage() {
         .slice(0, 8),
     [tasks]
   )
+  const calendars = useMemo(() => {
+    const m = new Map<string, { name: string; color: string }>()
+    for (const e of eventsQuery.data || []) {
+      if (e.calendarName && !m.has(e.calendarName)) m.set(e.calendarName, { name: e.calendarName, color: e.calendarColor || '#9aa5f0' })
+    }
+    return [...m.values()]
+  }, [eventsQuery.data])
   const noDate = tasks.filter((t) => t.status !== 'DONE' && !t.due_date && t.status !== 'BACKLOG').length
 
   const onEventClick = (arg: EventClickArg) => {
@@ -96,7 +107,7 @@ export default function CalendarPage() {
         const ev = raw as GoogleEvent
         const start = arg.event.start!
         const end = arg.event.end || new Date(start.getTime() + 60 * 60 * 1000)
-        await api.put(`/api/calendar/events/${ev.id}`, arg.event.allDay
+        await api.put(`/api/calendar/events/${ev.id}${calQuery(ev)}`, arg.event.allDay
           ? { allDay: true, start: toDateKey(start), end: toDateKey(end) }
           : { allDay: false, start: start.toISOString(), end: end.toISOString() })
         refreshEvents()
@@ -112,8 +123,9 @@ export default function CalendarPage() {
       <div className="flex-1 flex flex-col min-h-[540px]">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
+            <p className="label-caps mb-2">Agenda</p>
             <h2 className="text-gradient">Calendario</h2>
-            <p className="text-xs text-gray-500">Reuniones de Google Calendar + fechas límite de tus tareas</p>
+            <p className="text-xs text-gray-500 mt-1">Tus calendarios de Google y las fechas límite de tus tareas</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <label className="flex items-center gap-1.5 text-xs text-gray-300 bg-gray-800 px-2.5 py-2 rounded-lg cursor-pointer">
@@ -191,6 +203,19 @@ export default function CalendarPage() {
           </ul>
         )}
         {noDate > 0 && <p className="text-[11px] text-gray-500 mt-3">+ {noDate} tareas por hacer sin fecha (ver en Tareas)</p>}
+        {calendars.length > 0 && (
+          <div className="border-t border-gray-800 mt-4 pt-4">
+            <p className="label-caps !text-[9px] mb-2">Calendarios de Google</p>
+            <ul className="space-y-1.5">
+              {calendars.map((c) => (
+                <li key={c.name} className="flex items-center gap-2 text-xs text-gray-300 truncate">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
+                  {c.name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </aside>
 
       {/* Al hacer clic en un día: ¿evento o tarea? */}

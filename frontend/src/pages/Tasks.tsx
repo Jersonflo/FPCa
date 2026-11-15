@@ -28,7 +28,12 @@ function TaskCard({ task, onOpen, onDragStart, onDragEnd }: { task: Task; onOpen
           ))}
         </div>
       )}
-      <p className={`text-sm text-white leading-snug ${task.status === 'DONE' ? 'line-through' : ''}`}>{task.title}</p>
+      <p className={`text-sm text-gray-100 leading-snug ${task.status === 'DONE' ? 'line-through text-gray-500' : ''}`}>{task.title}</p>
+      {total > 0 && task.status !== 'DONE' && (
+        <div className="h-[3px] rounded-full bg-white/[0.06] mt-2.5 overflow-hidden">
+          <div className="h-full rounded-full bg-gradient-to-r from-[#7fb2ff] to-[#98ffe8] transition-all duration-500" style={{ width: `${(done / total) * 100}%` }} />
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px]">
         {task.due_date && (
@@ -136,6 +141,7 @@ export default function TasksPage() {
     <div className="h-full flex flex-col">
       <div className="p-5 md:p-8 pb-4 md:pb-6 flex flex-wrap items-end gap-3 justify-between">
         <div>
+          <p className="label-caps mb-2">Organización</p>
           <h2 className="text-gradient">Tareas</h2>
           <p className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
             <span>{pending} pendientes</span>
@@ -194,7 +200,7 @@ export default function TasksPage() {
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full" style={{ background: col.accent, boxShadow: `0 0 8px ${col.accent}` }} />
                   <span className="label-caps !text-gray-200">{col.title}</span>
-                  <span className="text-xs text-gray-500">{byColumn[col.id].length}</span>
+                  <span className="text-[10px] text-gray-400 bg-white/[0.05] rounded-full px-1.5 py-0.5 tabular-nums">{byColumn[col.id].length}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   {col.id === 'DONE' && byColumn.DONE.length > 0 && (

@@ -1,4 +1,4 @@
-# Dashboard Personal — Guía de Configuración
+# Atlas — Guía de Configuración
 
 Dashboard privado para organizarte: **Proyectos** (grafo), **Tareas** (tablero tipo Trello),
 **Calendario** (Google Calendar + fechas límite de tus tareas) y **Finanzas** (movimientos,
@@ -21,6 +21,7 @@ Son **dos proyectos en Vercel** a partir del mismo repositorio:
 2. Guarda la **Project URL** y la key **`service_role`** (Project Settings → API).
    Es secreta: solo va en el backend.
 3. Ve a **SQL Editor**, pega el contenido de `backend/supabase-schema.sql` y ejecútalo.
+   - Si ya tenías la base creada, basta con ejecutar las migraciones nuevas, por ejemplo `backend/supabase-migration-2026-11-15.sql` (dinero por proyecto) y `backend/supabase-migration-2026-11-16.sql` (plataformas y cuentas como nodos).
    Puedes ejecutarlo de nuevo cada vez que se actualice: no borra datos.
    Además activa *Row Level Security* para que nadie pueda leer tus tablas con la key pública.
 
