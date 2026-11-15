@@ -75,6 +75,9 @@ export default function PlexusSphere({ size = 150, color = '#22d3ee', points = 5
     // Color de líneas: mezcla 60/40 del color del proyecto con azul hielo (más elegante, menos neón)
     const lr = Math.round(cr * 0.6 + 186 * 0.4), lg = Math.round(cg * 0.6 + 215 * 0.4), lb = Math.round(cb * 0.6 + 245 * 0.4)
     const sparks = pts.map(() => rand() < 0.12)
+    const LEVELS = 6
+    const lineBuckets: number[][] = Array.from({ length: LEVELS }, () => [])
+    const dotBuckets: number[][] = Array.from({ length: LEVELS }, () => [])
     const cx = size / 2, cy = size / 2
     const proj = new Array(pts.length)
     const phase = rand() * 10
@@ -102,26 +105,51 @@ export default function PlexusSphere({ size = 150, color = '#22d3ee', points = 5
       ctx.fillStyle = halo
       ctx.fillRect(0, 0, size, size)
 
-      // Malla: líneas finas en el color del proyecto mezclado con azul hielo
+      // Malla: líneas finas en el color del proyecto mezclado con azul hielo.
+      // Se agrupan por nivel de brillo → pocas llamadas a stroke() por cuadro (mucho más fluido)
       ctx.lineWidth = 0.55
+      for (const b of lineBuckets) b.length = 0
       for (const [i, j, w] of edges) {
         const p = proj[i], q = proj[j]
         const depth = (p[2] + q[2]) / 2
-        ctx.strokeStyle = `rgba(${lr},${lg},${lb},${w * 0.62 * depth * depth * energy})`
+        const a = w * 0.62 * depth * depth * energy
+        const bi = Math.min(LEVELS - 1, Math.floor((a / 0.75) * LEVELS))
+        if (bi >= 0) lineBuckets[bi].push(p[0], p[1], q[0], q[1])
+      }
+      for (let bi = 0; bi < LEVELS; bi++) {
+        const list = lineBuckets[bi]
+        if (!list.length) continue
+        ctx.strokeStyle = `rgba(${lr},${lg},${lb},${((bi + 0.5) / LEVELS) * 0.75})`
         ctx.beginPath()
-        ctx.moveTo(p[0], p[1])
-        ctx.lineTo(q[0], q[1])
+        for (let k = 0; k < list.length; k += 4) {
+          ctx.moveTo(list[k], list[k + 1])
+          ctx.lineTo(list[k + 2], list[k + 3])
+        }
         ctx.stroke()
       }
-      // Nodos: puntos azul hielo; algunos titilan en menta
+      // Nodos: puntos azul hielo (agrupados por brillo); algunos titilan en menta
+      for (const b of dotBuckets) b.length = 0
       for (let i = 0; i < proj.length; i++) {
         const p = proj[i]
         const k = p[2]
         const twinkle = sparks[i] ? Math.max(0, Math.sin(t * 0.004 + i)) ** 6 : 0
-        const alpha = (0.35 + 0.6 * k * k) * energy + twinkle * 0.9
-        ctx.fillStyle = twinkle > 0.2 ? `rgba(152,255,232,${alpha})` : `rgba(214,232,252,${alpha})`
         const r = 0.6 * k + 0.25 + twinkle * 1.2
-        ctx.fillRect(p[0] - r, p[1] - r, r * 2, r * 2)
+        if (twinkle > 0.2) {
+          ctx.fillStyle = `rgba(152,255,232,${Math.min(1, (0.35 + 0.6 * k * k) * energy + twinkle * 0.9)})`
+          ctx.fillRect(p[0] - r, p[1] - r, r * 2, r * 2)
+          continue
+        }
+        const alpha = (0.35 + 0.6 * k * k) * energy
+        const bi = Math.min(LEVELS - 1, Math.floor(alpha * LEVELS))
+        dotBuckets[bi].push(p[0] - r, p[1] - r, r * 2)
+      }
+      for (let bi = 0; bi < LEVELS; bi++) {
+        const list = dotBuckets[bi]
+        if (!list.length) continue
+        ctx.fillStyle = `rgba(214,232,252,${(bi + 0.5) / LEVELS})`
+        ctx.beginPath()
+        for (let k = 0; k < list.length; k += 3) ctx.rect(list[k], list[k + 1], list[k + 2], list[k + 2])
+        ctx.fill()
       }
       // Núcleo pequeño y suave
       const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.42)

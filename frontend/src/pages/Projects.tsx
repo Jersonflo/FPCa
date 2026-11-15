@@ -76,7 +76,8 @@ function OrbitRing({ id, color, active, progress }: { id: string; color: string;
         transform={`rotate(-90 ${SPHERE / 2} ${SPHERE / 2})`}
       />
       {/* Satélite en la punta del arco */}
-      <circle cx={SPHERE / 2 + r * Math.cos(Math.PI * 2 * frac - Math.PI / 2)} cy={SPHERE / 2 + r * Math.sin(Math.PI * 2 * frac - Math.PI / 2)} r="2" fill={color} style={{ filter: `drop-shadow(0 0 4px ${color})` }} />
+      <circle cx={SPHERE / 2 + r * Math.cos(Math.PI * 2 * frac - Math.PI / 2)} cy={SPHERE / 2 + r * Math.sin(Math.PI * 2 * frac - Math.PI / 2)} r="5" fill={color} opacity="0.2" />
+      <circle cx={SPHERE / 2 + r * Math.cos(Math.PI * 2 * frac - Math.PI / 2)} cy={SPHERE / 2 + r * Math.sin(Math.PI * 2 * frac - Math.PI / 2)} r="2" fill={color} />
     </svg>
   )
 }
@@ -176,20 +177,27 @@ function SynapseEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, t
           <stop offset="1" stopColor="#98ffe8" />
         </linearGradient>
       </defs>
-      <path d={path} fill="none" stroke={`url(#${gid})`} strokeOpacity={0.12} strokeWidth={selected ? 12 : 8} style={{ filter: 'blur(4px)' }} />
+      <path d={path} fill="none" stroke={`url(#${gid})`} strokeOpacity={0.08} strokeWidth={selected ? 12 : 8} strokeLinecap="round" />
       <path id={id} d={path} fill="none" className="react-flow__edge-path" style={{ stroke: `url(#${gid})`, strokeWidth: selected ? 1.6 : 1, strokeOpacity: selected ? 1 : 0.7 }} />
       <path d={path} fill="none" stroke="#d9e7f7" strokeOpacity={0.35} strokeWidth={1} strokeDasharray="1 9">
         <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.6s" repeatCount="indefinite" />
       </path>
       {/* Pulso de ida (menta) y de vuelta (lavanda) con estela */}
-      {[0, 0.06, 0.12].map((lag, k) => (
-        <circle key={k} r={2.6 - k * 0.7} fill="#eafffa" opacity={1 - k * 0.35} style={{ filter: 'drop-shadow(0 0 6px #98ffe8)' }}>
-          <animateMotion dur={`${dur}s`} begin={`-${lag * dur}s`} repeatCount="indefinite" path={path} />
-        </circle>
-      ))}
-      <circle r={2} fill="#e4e8ff" style={{ filter: 'drop-shadow(0 0 6px #9aa5f0)' }}>
+      {/* Pulsos con halo de círculos translúcidos (sin filtros: mucho más fluido) */}
+      <g>
+        <circle r={7} fill="#98ffe8" opacity={0.14} />
+        <circle r={2.6} fill="#eafffa" />
+        <animateMotion dur={`${dur}s`} repeatCount="indefinite" path={path} />
+      </g>
+      <g>
+        <circle r={1.6} fill="#98ffe8" opacity={0.5} />
+        <animateMotion dur={`${dur}s`} begin={`-${0.07 * dur}s`} repeatCount="indefinite" path={path} />
+      </g>
+      <g>
+        <circle r={6} fill="#9aa5f0" opacity={0.14} />
+        <circle r={2} fill="#e4e8ff" />
         <animateMotion dur={`${dur * 1.4}s`} begin={`${dur / 2}s`} repeatCount="indefinite" path={path} keyPoints="1;0" keyTimes="0;1" calcMode="linear" />
-      </circle>
+      </g>
     </g>
   )
 }

@@ -91,9 +91,12 @@ export function TetherEdge({ id, sourceX, sourceY, targetX, targetY, data }: Edg
   return (
     <g>
       <path id={id} d={path} fill="none" stroke={c} strokeOpacity={0.28} strokeWidth={1} />
-      <circle r={1.8} fill={c} style={{ filter: `drop-shadow(0 0 4px ${c})` }}>
+      {/* Pulso con halo hecho de un círculo translúcido (sin filtros = mucho más fluido) */}
+      <g>
+        <circle r={5} fill={c} opacity={0.18} />
+        <circle r={1.8} fill={c} />
         <animateMotion dur="4.5s" repeatCount="indefinite" path={path} />
-      </circle>
+      </g>
     </g>
   )
 }
@@ -112,13 +115,15 @@ export function LinkEdge({ id, sourceX, sourceY, targetX, targetY, sourcePositio
           <stop offset="1" stopColor="#bad7f5" />
         </linearGradient>
       </defs>
-      <path d={path} fill="none" stroke={`url(#${gid})`} strokeOpacity={0.1} strokeWidth={selected ? 10 : 6} style={{ filter: 'blur(3px)' }} />
+      <path d={path} fill="none" stroke={`url(#${gid})`} strokeOpacity={0.07} strokeWidth={selected ? 10 : 6} strokeLinecap="round" />
       <path d={path} fill="none" className="react-flow__edge-path" style={{ stroke: `url(#${gid})`, strokeWidth: selected ? 1.5 : 1, strokeOpacity: selected ? 1 : 0.55, strokeDasharray: '4 5' }}>
         <animate attributeName="stroke-dashoffset" from="18" to="0" dur="1.4s" repeatCount="indefinite" />
       </path>
-      <circle r={2.2} fill={c} style={{ filter: `drop-shadow(0 0 6px ${c})` }}>
+      <g>
+        <circle r={6} fill={c} opacity={0.16} />
+        <circle r={2.2} fill={c} />
         <animateMotion dur={`${dur}s`} repeatCount="indefinite" path={path} />
-      </circle>
+      </g>
     </g>
   )
 }
