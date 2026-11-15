@@ -32,6 +32,10 @@ export type Stats = {
   savings: number
   byCategory: Record<string, number>
   total_expenses: number
+  /** Gastos/ahorro pagados con tarjeta de crédito (no salen del disponible) */
+  credit_spent?: number
+  /** Ingresos registrados en una tarjeta de crédito = pagos a la tarjeta */
+  card_payments?: number
   net_balance: number
   savings_rate: number
   rule_50_30_20: { needs: number; wants: number; savings: number }

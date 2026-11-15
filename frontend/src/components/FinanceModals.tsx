@@ -99,10 +99,29 @@ export function TransactionModal({
         <Field label="Cuenta / tarjeta">
           <Select value={cardId} onChange={(e) => setCardId(e.target.value)}>
             <option value="">— Efectivo / otra —</option>
-            {cards.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {cards.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}{c.type === 'CREDIT' ? ' (crédito)' : ''}</option>
+            ))}
           </Select>
         </Field>
       </div>
+      {(() => {
+        const card = cards.find((c) => c.id === cardId)
+        if (!card) return null
+        const credit = card.type === 'CREDIT'
+        const msg = credit
+          ? type === 'INCOME'
+            ? 'Se registra como pago a la tarjeta: baja la deuda y sale de tu disponible.'
+            : 'Usa cupo de la tarjeta: se suma a su deuda y no sale de tu disponible.'
+          : type === 'INCOME'
+            ? 'Se suma al saldo de esta cuenta.'
+            : 'Se descuenta del saldo de esta cuenta y de tu disponible.'
+        return (
+          <p className={`text-xs rounded-xl px-3 py-2 border ${credit ? 'text-[#c3caf8] bg-[#9aa5f0]/10 border-[#9aa5f0]/20' : 'text-gray-400 bg-white/[0.03] border-gray-800'}`}>
+            {msg}
+          </p>
+        )
+      })()}
     </Modal>
   )
 }
@@ -335,6 +354,60 @@ export function BudgetsModal({
         <Button onClick={add} disabled={busy}>Agregar</Button>
       </div>
       <p className="text-[11px] text-gray-500">Si la categoría ya existe, se actualiza el monto.</p>
+    </Modal>
+  )
+}
+
+// ─── Pagar tarjeta de crédito ────────────────────────────────────
+export function PayCardModal({ card, cards, onClose, onSaved }: { card: FinanceCard; cards: FinanceCard[]; onClose: () => void; onSaved: () => void }) {
+  const debt = Math.max(0, Math.round(Number(card.balance || 0)))
+  const debitCards = cards.filter((c) => c.type === 'DEBIT')
+  const [amount, setAmount] = useState(debt ? String(debt) : '')
+  const [fromId, setFromId] = useState(debitCards[0]?.id || '')
+  const [date, setDate] = useState(toDateKey(new Date()))
+  const { saving, run } = useSaver(() => { onSaved(); onClose() })
+
+  const value = Number(amount) || 0
+  const from = debitCards.find((c) => c.id === fromId)
+  const save = () =>
+    run(() => api.post(`/api/finance/cards/${card.id}/pay`, { amount: value, from_card_id: fromId || null, date }))
+
+  return (
+    <Modal
+      title={`Pagar ${card.name}`}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button onClick={save} disabled={!(value > 0) || saving}>{saving ? 'Pagando…' : 'Pagar'}</Button>
+        </>
+      }
+    >
+      <p className="text-xs text-gray-400">Deuda actual: <span className="text-[#ff8fb1]">{formatCOP(debt)}</span></p>
+      <Field label="Monto a pagar">
+        <MoneyInput autoFocus value={amount} onChange={setAmount} />
+      </Field>
+      {debt > 0 && value !== debt && (
+        <button type="button" onClick={() => setAmount(String(debt))} className="text-xs text-indigo-400 hover:text-indigo-300 -mt-2">
+          Pagar el total ({formatCOP(debt)})
+        </button>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Pagar desde">
+          <Select value={fromId} onChange={(e) => setFromId(e.target.value)}>
+            {debitCards.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <option value="">— Efectivo / otra —</option>
+          </Select>
+        </Field>
+        <Field label="Fecha"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+      </div>
+      {value > 0 && (
+        <div className="text-xs rounded-xl px-3 py-2.5 border border-gray-800 bg-white/[0.03] space-y-1 text-gray-300">
+          <p>La deuda de {card.name} queda en <span className="text-gray-100">{formatCOP(Math.max(0, debt - value))}</span>.</p>
+          {from && <p>Se descuenta de {from.name}: queda en <span className="text-gray-100">{formatCOP(Number(from.balance || 0) - value)}</span>.</p>}
+          <p className="text-gray-500">Sale de tu disponible, pero no cuenta como gasto (las compras ya se contaron).</p>
+        </div>
+      )}
     </Modal>
   )
 }

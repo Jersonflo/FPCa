@@ -83,6 +83,48 @@ export async function financeRoutes(app: FastifyInstance) {
     return { success: true }
   })
 
+  // Pagar una tarjeta de crédito (opcionalmente desde una cuenta de débito):
+  //  - registra el pago en la tarjeta → baja su deuda y sale del "Disponible"
+  //  - descuenta el monto del saldo de la cuenta de origen (sin contarlo como gasto)
+  app.post('/cards/:id/pay', async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const { amount, from_card_id, date } = (req.body || {}) as { amount?: number; from_card_id?: string | null; date?: string }
+    const value = Math.abs(Number(amount) || 0)
+    if (!value) return reply.status(400).send({ error: 'amount es requerido' })
+
+    const { data: card } = await supabase.from('cards').select('id, name, type').eq('id', id).maybeSingle()
+    if (!card || card.type !== 'CREDIT') return reply.status(400).send({ error: 'Solo se pueden pagar tarjetas de crédito' })
+
+    let from: { id: string; name: string; type: string; balance: number } | null = null
+    if (from_card_id) {
+      const { data } = await supabase.from('cards').select('id, name, type, balance').eq('id', from_card_id).maybeSingle()
+      if (!data || data.type !== 'DEBIT') return reply.status(400).send({ error: 'La cuenta de origen debe ser de débito' })
+      from = data
+    }
+
+    const { data: tx, error } = await supabase
+      .from('transactions')
+      .insert({
+        amount: value,
+        description: from ? `Pago de tarjeta ${card.name} desde ${from.name}` : `Pago de tarjeta ${card.name}`,
+        type: 'INCOME',
+        category: 'Pago de tarjeta',
+        card_id: card.id,
+        ...(date ? { date } : {}),
+      })
+      .select()
+      .single()
+    if (error) return reply.status(500).send({ error: error.message })
+    await syncCardBalances(null, tx) // baja la deuda de la tarjeta
+
+    if (from) {
+      const balance = Math.round((Number(from.balance || 0) - value) * 100) / 100
+      const { error: e2 } = await supabase.from('cards').update({ balance }).eq('id', from.id)
+      if (e2) return reply.status(500).send({ error: e2.message })
+    }
+    return reply.status(201).send({ transaction: tx })
+  })
+
   // ─── TRANSACCIONES ────────────────────────────────────────────
   app.get('/transactions', async (req, reply) => {
     const { month, year, card_id } = req.query as { month?: string; year?: string; card_id?: string }
@@ -238,18 +280,28 @@ export async function financeRoutes(app: FastifyInstance) {
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('amount, type, category')
+      .select('amount, type, category, cards(type)')
       .gte('date', start)
       .lte('date', end)
     if (error) return reply.status(500).send({ error: error.message })
 
     let income = 0, fixed = 0, variable = 0, savings = 0
+    let creditSpent = 0   // gastos/ahorro pagados con tarjeta de crédito (usan cupo, no plata disponible)
+    let cardPayments = 0  // "ingresos" registrados en una tarjeta de crédito = pagos a la tarjeta
     const byCategory: Record<string, number> = {} // solo gastos (fijos + variables)
 
     for (const t of data || []) {
       const amount = Number(t.amount)
-      if (t.type === 'INCOME') income += amount
-      else if (t.type === 'SAVINGS') savings += amount
+      const card = Array.isArray(t.cards) ? t.cards[0] : t.cards
+      const onCredit = (card as { type?: string } | null)?.type === 'CREDIT'
+      if (t.type === 'INCOME') {
+        // Un ingreso en una tarjeta de crédito es un pago que baja la deuda, no plata nueva
+        if (onCredit) cardPayments += amount
+        else income += amount
+        continue
+      }
+      if (onCredit) creditSpent += amount
+      if (t.type === 'SAVINGS') savings += amount
       else {
         if (t.type === 'FIXED') fixed += amount
         else variable += amount
@@ -267,8 +319,11 @@ export async function financeRoutes(app: FastifyInstance) {
       savings,
       byCategory,
       total_expenses: totalExpenses,
-      // Lo que queda libre después de gastos y ahorro
-      net_balance: income - totalExpenses - savings,
+      credit_spent: creditSpent,
+      card_payments: cardPayments,
+      // Plata realmente libre: lo que se paga con crédito no sale del disponible
+      // (se vuelve deuda); los pagos a la tarjeta sí salen del disponible.
+      net_balance: income - (totalExpenses + savings - creditSpent) - cardPayments,
       savings_rate: pct(savings),
       // Regla 50/30/20: necesidades (fijos) / deseos (variables) / ahorro
       rule_50_30_20: { needs: pct(fixed), wants: pct(variable), savings: pct(savings) },

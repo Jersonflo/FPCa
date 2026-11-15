@@ -15,7 +15,7 @@ import {
 } from '../lib/finance'
 import { Card, ProgressBar } from '../components/ui'
 import AnimatedNumber from '../components/AnimatedNumber'
-import { BudgetsModal, CardModal, ContributeModal, GoalModal, TransactionModal } from '../components/FinanceModals'
+import { BudgetsModal, CardModal, ContributeModal, GoalModal, PayCardModal, TransactionModal } from '../components/FinanceModals'
 
 const compact = (v: number) =>
   new Intl.NumberFormat('es-CO', { notation: 'compact', maximumFractionDigits: 1 }).format(v)
@@ -28,6 +28,7 @@ const tooltipStyle = {
 type ModalState =
   | { kind: 'tx'; tx?: Transaction }
   | { kind: 'card'; card?: FinanceCard }
+  | { kind: 'pay'; card: FinanceCard }
   | { kind: 'goal'; goal?: Goal }
   | { kind: 'contribute'; goal: Goal }
   | { kind: 'budgets' }
@@ -139,10 +140,19 @@ export default function FinancePage() {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 stagger">
         {[
           { label: 'Ingresos', value: stats?.income || 0, icon: TrendingUp, color: 'text-[#98ffe8]' },
-          { label: 'Gastos', value: stats?.total_expenses || 0, icon: TrendingDown, color: 'text-[#ff8fb1]' },
+          {
+            label: 'Gastos', value: stats?.total_expenses || 0, icon: TrendingDown, color: 'text-[#ff8fb1]',
+            note: stats?.credit_spent ? `${formatCOP(stats.credit_spent)} con tarjeta de crédito` : undefined,
+          },
           { label: 'Ahorrado', value: stats?.savings || 0, icon: PiggyBank, color: 'text-[#9aa5f0]' },
-          { label: 'Disponible', value: stats?.net_balance || 0, icon: Wallet, color: (stats?.net_balance || 0) < 0 ? 'text-[#ff8fb1]' : 'text-[#bad7f5]' },
-        ].map(({ label, value, icon: Icon, color }) => (
+          {
+            label: 'Disponible', value: stats?.net_balance || 0, icon: Wallet,
+            color: (stats?.net_balance || 0) < 0 ? 'text-[#ff8fb1]' : 'text-[#bad7f5]',
+            note: stats?.credit_spent || stats?.card_payments
+              ? `Sin compras a crédito${stats?.card_payments ? ` · ${formatCOP(stats.card_payments)} pagados a tarjetas` : ''}`
+              : undefined,
+          },
+        ].map(({ label, value, icon: Icon, color, note }) => (
           <div key={label} className="bg-gray-900 border border-gray-800 rounded-2xl p-4 glow-hover">
             <div className={`flex items-center gap-2 mb-1 ${color}`}>
               <Icon size={16} />
@@ -151,6 +161,7 @@ export default function FinancePage() {
             <p className={`text-[1.6rem] font-light tracking-tight leading-none mt-1 ${value < 0 ? 'text-[#ff8fb1]' : 'text-gray-100'}`}>
               <AnimatedNumber value={value} format={formatCOP} />
             </p>
+            {note && <p className="text-[11px] text-gray-500 mt-1.5 leading-snug">{note}</p>}
           </div>
         ))}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 col-span-2 lg:col-span-1 glow-hover">
@@ -357,10 +368,13 @@ export default function FinancePage() {
             {cards.map((card) => {
               const usage = card.type === 'CREDIT' && card.credit_limit ? Math.round((card.balance / card.credit_limit) * 100) : null
               return (
-                <button
+                <div
                   key={card.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setModal({ kind: 'card', card })}
-                  className="w-full text-left p-3 bg-gray-800 hover:bg-gray-700/80 rounded-lg"
+                  onKeyDown={(e) => e.key === 'Enter' && setModal({ kind: 'card', card })}
+                  className="w-full text-left p-3 bg-gray-800 hover:bg-gray-700/80 rounded-lg cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -377,6 +391,17 @@ export default function FinancePage() {
                       <p className="text-xs text-gray-500">{card.type === 'CREDIT' ? 'Deuda' : 'Saldo'}</p>
                     </div>
                   </div>
+                  {card.type === 'CREDIT' && Number(card.balance) > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setModal({ kind: 'pay', card })
+                      }}
+                      className="mt-2.5 w-full text-xs font-medium py-1.5 rounded-full border border-gray-700 text-gray-200 hover:bg-white/[0.06] hover:border-gray-600 transition-colors"
+                    >
+                      Pagar tarjeta
+                    </button>
+                  )}
                   {usage !== null && (
                     <div className="mt-2">
                       <ProgressBar value={usage} color={usage > 30 ? '#f5c97a' : '#98ffe8'} over={usage > 90} />
@@ -385,7 +410,7 @@ export default function FinancePage() {
                       </p>
                     </div>
                   )}
-                </button>
+                </div>
               )
             })}
           </div>
@@ -432,6 +457,7 @@ export default function FinancePage() {
         <TransactionModal tx={modal.tx} cards={cards} defaultDate={defaultTxDate} onClose={() => setModal(null)} onSaved={refresh} />
       )}
       {modal?.kind === 'card' && <CardModal card={modal.card} onClose={() => setModal(null)} onSaved={refresh} />}
+      {modal?.kind === 'pay' && <PayCardModal card={modal.card} cards={cards} onClose={() => setModal(null)} onSaved={refresh} />}
       {modal?.kind === 'goal' && (
         <GoalModal goal={modal.goal} suggestedEmergency={avgExpenses * 6 || undefined} onClose={() => setModal(null)} onSaved={refresh} />
       )}
