@@ -25,6 +25,34 @@ function cleanTx(body: Record<string, unknown>) {
   return body
 }
 
+type TxLike = { amount?: unknown; type?: unknown; card_id?: unknown } | null | undefined
+
+/**
+ * Efecto de un movimiento sobre el saldo de su cuenta.
+ * - Débito/ahorro: ingreso suma, gasto o ahorro resta.
+ * - Crédito (el saldo es deuda): gasto suma deuda, ingreso (pago) la reduce.
+ */
+function txEffect(tx: TxLike, cardType: string) {
+  const amount = Math.abs(Number(tx?.amount) || 0)
+  const signed = tx?.type === 'INCOME' ? amount : -amount
+  return cardType === 'CREDIT' ? -signed : signed
+}
+
+/** Revierte el efecto de `before` y aplica el de `after` en las cuentas afectadas. */
+async function syncCardBalances(before: TxLike, after: TxLike) {
+  const ids = new Set([before?.card_id, after?.card_id].filter(Boolean) as string[])
+  if (!ids.size) return
+  const { data: cards } = await supabase.from('cards').select('id, type, balance').in('id', [...ids])
+  for (const card of cards || []) {
+    let delta = 0
+    if (before?.card_id === card.id) delta -= txEffect(before, card.type)
+    if (after?.card_id === card.id) delta += txEffect(after, card.type)
+    if (!delta) continue
+    const balance = Math.round((Number(card.balance || 0) + delta) * 100) / 100
+    await supabase.from('cards').update({ balance }).eq('id', card.id)
+  }
+}
+
 export async function financeRoutes(app: FastifyInstance) {
   // ─── TARJETAS / CUENTAS ───────────────────────────────────────
   app.get('/cards', async (_req, reply) => {
@@ -82,11 +110,13 @@ export async function financeRoutes(app: FastifyInstance) {
     }
     const { data, error } = await supabase.from('transactions').insert(body).select().single()
     if (error) return reply.status(500).send({ error: error.message })
+    await syncCardBalances(null, data)
     return reply.status(201).send(data)
   })
 
   app.put('/transactions/:id', async (req, reply) => {
     const { id } = req.params as { id: string }
+    const { data: before } = await supabase.from('transactions').select('amount, type, card_id').eq('id', id).single()
     const { data, error } = await supabase
       .from('transactions')
       .update(cleanTx(pick(req.body, TX_FIELDS)))
@@ -94,13 +124,16 @@ export async function financeRoutes(app: FastifyInstance) {
       .select()
       .single()
     if (error) return reply.status(500).send({ error: error.message })
+    await syncCardBalances(before, data)
     return data
   })
 
   app.delete('/transactions/:id', async (req, reply) => {
     const { id } = req.params as { id: string }
+    const { data: before } = await supabase.from('transactions').select('amount, type, card_id').eq('id', id).single()
     const { error } = await supabase.from('transactions').delete().eq('id', id)
     if (error) return reply.status(500).send({ error: error.message })
+    await syncCardBalances(before, null)
     return { success: true }
   })
 
@@ -152,13 +185,18 @@ export async function financeRoutes(app: FastifyInstance) {
     if (error) return reply.status(500).send({ error: error.message })
 
     if (record && value > 0) {
-      await supabase.from('transactions').insert({
-        amount: value,
-        description: `Aporte a meta: ${goal.name}`,
-        type: 'SAVINGS',
-        category: 'Ahorro',
-        card_id: card_id || null,
-      })
+      const { data: tx } = await supabase
+        .from('transactions')
+        .insert({
+          amount: value,
+          description: `Aporte a meta: ${goal.name}`,
+          type: 'SAVINGS',
+          category: 'Ahorro',
+          card_id: card_id || null,
+        })
+        .select()
+        .single()
+      await syncCardBalances(null, tx)
     }
     return data
   })
