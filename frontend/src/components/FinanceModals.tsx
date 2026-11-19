@@ -33,12 +33,25 @@ export function TransactionModal({
   const [category, setCategory] = useState(tx?.category || '')
   const [date, setDate] = useState(tx?.date?.slice(0, 10) || defaultDate || toDateKey(new Date()))
   const [cardId, setCardId] = useState(tx?.card_id || '')
+  const [toCardId, setToCardId] = useState(tx?.to_card_id || '')
   const { saving, run } = useSaver(() => { onSaved(); onClose() })
 
-  const valid = Number(amount) > 0 && description.trim() && category.trim()
+  const isTransfer = type === 'TRANSFER'
+  const fromCard = cards.find((c) => c.id === cardId)
+  const toCard = cards.find((c) => c.id === toCardId)
+  // En transferencias la descripción y la categoría son opcionales: se rellenan solas
+  const finalDescription = description.trim() || (isTransfer && fromCard && toCard ? `Transferencia de ${fromCard.name} a ${toCard.name}` : '')
+  const finalCategory = category.trim() || (isTransfer ? 'Transferencia' : '')
+  const transferOk = !isTransfer || (!!cardId && !!toCardId && cardId !== toCardId)
+  const valid = Number(amount) > 0 && finalDescription && finalCategory && transferOk
+
   const save = () =>
     run(() => {
-      const body = { type, amount: Number(amount), description: description.trim(), category: category.trim(), date, card_id: cardId || null }
+      const body: Record<string, unknown> = {
+        type, amount: Number(amount), description: finalDescription, category: finalCategory, date, card_id: cardId || null,
+      }
+      // to_card_id solo se envía cuando aplica (transferencia, o una que deja de serlo)
+      if (isTransfer || tx?.type === 'TRANSFER') body.to_card_id = isTransfer ? toCardId : null
       return tx ? api.put(`/api/finance/transactions/${tx.id}`, body) : api.post('/api/finance/transactions', body)
     })
   const remove = () => {
@@ -63,7 +76,7 @@ export function TransactionModal({
             key={t}
             type="button"
             onClick={() => setType(t)}
-            className={`text-xs py-2 px-2 rounded-lg border transition-colors ${
+            className={`text-xs py-2 px-2 rounded-lg border transition-colors ${t === 'TRANSFER' ? 'col-span-2' : ''} ${
               type === t ? 'text-white' : 'border-gray-700 text-gray-400 hover:text-white'
             }`}
             style={type === t ? { borderColor: TX_TYPES[t].color, background: TX_TYPES[t].color + '20' } : {}}
@@ -74,10 +87,14 @@ export function TransactionModal({
       </div>
       <Field label="Monto (COP)"><MoneyInput autoFocus value={amount} onChange={setAmount} /></Field>
       <Field label="Descripción">
-        <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej: Almuerzo, pago arriendo…" />
+        <Input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder={isTransfer ? (fromCard && toCard ? `Transferencia de ${fromCard.name} a ${toCard.name}` : 'Opcional') : 'Ej: Almuerzo, pago arriendo…'}
+        />
       </Field>
       <Field label="Categoría">
-        <Input list="tx-categories" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Escribe o elige" />
+        <Input list="tx-categories" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={isTransfer ? 'Transferencia' : 'Escribe o elige'} />
         <datalist id="tx-categories">
           {CATEGORY_SUGGESTIONS[type].map((c) => <option key={c} value={c} />)}
         </datalist>
@@ -94,18 +111,59 @@ export function TransactionModal({
           ))}
         </div>
       </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Fecha"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-        <Field label="Cuenta / tarjeta">
-          <Select value={cardId} onChange={(e) => setCardId(e.target.value)}>
-            <option value="">— Efectivo / otra —</option>
-            {cards.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}{c.type === 'CREDIT' ? ' (crédito)' : ''}</option>
-            ))}
-          </Select>
-        </Field>
-      </div>
-      {(() => {
+      {isTransfer ? (
+        <>
+          <Field label="Fecha"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Desde (sale la plata)">
+              <Select
+                value={cardId}
+                onChange={(e) => {
+                  setCardId(e.target.value)
+                  if (e.target.value === toCardId) setToCardId('')
+                }}
+              >
+                <option value="">— Elige cuenta —</option>
+                {cards.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}{c.type === 'CREDIT' ? ' (crédito)' : ''}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Hacia (entra la plata)">
+              <Select value={toCardId} onChange={(e) => setToCardId(e.target.value)}>
+                <option value="">— Elige cuenta —</option>
+                {cards.filter((c) => c.id !== cardId).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}{c.type === 'CREDIT' ? ' (crédito)' : ''}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          {cards.length < 2 && (
+            <p className="text-xs text-gray-400">Necesitas al menos dos cuentas para transferir.</p>
+          )}
+          {fromCard && toCard && fromCard.id !== toCard.id && (
+            <p className="text-xs rounded-xl px-3 py-2 border text-[#d9cbff] bg-[#c4a8ff]/10 border-[#c4a8ff]/20">
+              {fromCard.type === 'CREDIT' ? `Sube la deuda de ${fromCard.name} (avance)` : `Sale del saldo de ${fromCard.name}`}
+              {' y '}
+              {toCard.type === 'CREDIT' ? `baja la deuda de ${toCard.name}.` : `entra al saldo de ${toCard.name}.`}
+              {' '}No cuenta como ingreso ni como gasto.
+            </p>
+          )}
+        </>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Fecha"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+          <Field label="Cuenta / tarjeta">
+            <Select value={cardId} onChange={(e) => setCardId(e.target.value)}>
+              <option value="">— Efectivo / otra —</option>
+              {cards.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}{c.type === 'CREDIT' ? ' (crédito)' : ''}</option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+      )}
+      {!isTransfer && (() => {
         const card = cards.find((c) => c.id === cardId)
         if (!card) return null
         const credit = card.type === 'CREDIT'

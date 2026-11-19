@@ -439,11 +439,17 @@ export default function FinancePage() {
                 <div className="min-w-0">
                   <p className="text-sm text-white truncate">{t.description}</p>
                   <p className="text-xs text-gray-500 truncate">
-                    {t.category} · {formatDate(t.date)}{t.cards?.name && ` · ${t.cards.name}`}
+                    {t.category} · {formatDate(t.date)}
+                    {t.type === 'TRANSFER'
+                      ? ` · ${t.cards?.name || '—'} → ${t.to_card?.name || '—'}`
+                      : t.cards?.name && ` · ${t.cards.name}`}
                   </p>
                 </div>
               </div>
-              <span className="text-sm font-medium shrink-0 ml-2" style={{ color: t.type === 'INCOME' ? '#98ffe8' : t.type === 'SAVINGS' ? '#9aa5f0' : '#ff8fb1' }}>
+              <span
+                className="text-sm font-medium shrink-0 ml-2"
+                style={{ color: t.type === 'INCOME' ? '#98ffe8' : t.type === 'SAVINGS' ? '#9aa5f0' : t.type === 'TRANSFER' ? TX_TYPES.TRANSFER.color : '#ff8fb1' }}
+              >
                 {TX_TYPES[t.type].sign}{formatCOP(t.amount)}
               </span>
             </button>

@@ -123,9 +123,10 @@ CREATE TABLE IF NOT EXISTS transactions (
   description TEXT NOT NULL,
   date        DATE NOT NULL DEFAULT CURRENT_DATE,
   type        TEXT NOT NULL
-              CHECK (type IN ('INCOME', 'FIXED', 'VARIABLE', 'SAVINGS')),
+              CHECK (type IN ('INCOME', 'FIXED', 'VARIABLE', 'SAVINGS', 'TRANSFER')),
   category    TEXT NOT NULL,
-  card_id     UUID REFERENCES cards(id) ON DELETE SET NULL,
+  card_id     UUID REFERENCES cards(id) ON DELETE SET NULL,     -- en TRANSFER: cuenta de origen
+  to_card_id  UUID REFERENCES cards(id) ON DELETE SET NULL,     -- solo TRANSFER: cuenta de destino
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 

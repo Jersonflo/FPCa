@@ -1,4 +1,4 @@
-export type TxType = 'INCOME' | 'FIXED' | 'VARIABLE' | 'SAVINGS'
+export type TxType = 'INCOME' | 'FIXED' | 'VARIABLE' | 'SAVINGS' | 'TRANSFER'
 
 export type Transaction = {
   id: string
@@ -7,8 +7,12 @@ export type Transaction = {
   date: string
   type: TxType
   category: string
+  /** En una transferencia: cuenta de origen */
   card_id?: string | null
+  /** Solo en transferencias: cuenta de destino */
+  to_card_id?: string | null
   cards?: { name: string; bank: string; last_four: string } | null
+  to_card?: { name: string; bank: string; last_four: string } | null
 }
 
 export type FinanceCard = {
@@ -43,11 +47,12 @@ export type Stats = {
 
 export type TrendPoint = { key: string; year: number; month: number; income: number; expenses: number; savings: number }
 
-export const TX_TYPES: Record<TxType, { label: string; short: string; color: string; sign: '+' | '-' }> = {
+export const TX_TYPES: Record<TxType, { label: string; short: string; color: string; sign: '+' | '-' | '' }> = {
   INCOME: { label: 'Ingreso', short: 'Ingreso', color: '#98ffe8', sign: '+' },
   FIXED: { label: 'Gasto necesario (fijo)', short: 'Necesario', color: '#7fb2ff', sign: '-' },
   VARIABLE: { label: 'Gasto variable (gustos)', short: 'Gusto', color: '#f5c97a', sign: '-' },
   SAVINGS: { label: 'Ahorro / inversión', short: 'Ahorro', color: '#9aa5f0', sign: '-' },
+  TRANSFER: { label: 'Transferencia entre cuentas', short: 'Transferencia', color: '#c4a8ff', sign: '' },
 }
 
 export const CATEGORY_SUGGESTIONS: Record<TxType, string[]> = {
@@ -55,6 +60,7 @@ export const CATEGORY_SUGGESTIONS: Record<TxType, string[]> = {
   FIXED: ['Arriendo', 'Servicios', 'Internet y celular', 'Mercado', 'Transporte', 'Salud', 'Educación', 'Deudas', 'Suscripciones'],
   VARIABLE: ['Restaurantes', 'Domicilios', 'Entretenimiento', 'Ropa', 'Compras', 'Viajes', 'Regalos', 'Otros'],
   SAVINGS: ['Ahorro', 'Fondo de emergencia', 'Inversión', 'Pensión voluntaria'],
+  TRANSFER: ['Transferencia', 'Pago de tarjeta', 'Mover a ahorros', 'Avance'],
 }
 
 export const CHART_COLORS = ['#7fb2ff', '#9aa5f0', '#98ffe8', '#ff7aa8', '#f5c97a', '#bad7f5', '#c4a8ff', '#6fd3ff', '#ffb38a']

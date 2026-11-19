@@ -3,9 +3,9 @@ import { supabase } from '../lib/supabase'
 import { pick } from '../lib/config'
 
 const CARD_FIELDS = ['name', 'bank', 'last_four', 'type', 'credit_limit', 'balance', 'color'] as const
-const TX_FIELDS = ['amount', 'description', 'date', 'type', 'category', 'card_id'] as const
+const TX_FIELDS = ['amount', 'description', 'date', 'type', 'category', 'card_id', 'to_card_id'] as const
 const GOAL_FIELDS = ['name', 'target', 'current', 'deadline', 'color'] as const
-const TX_TYPES = ['INCOME', 'FIXED', 'VARIABLE', 'SAVINGS']
+const TX_TYPES = ['INCOME', 'FIXED', 'VARIABLE', 'SAVINGS', 'TRANSFER']
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -21,11 +21,22 @@ function validMonth(year: number, month: number) {
 
 function cleanTx(body: Record<string, unknown>) {
   if (body.card_id === '') body.card_id = null
+  if (body.to_card_id === '') body.to_card_id = null
+  // El destino solo tiene sentido en transferencias
+  if (body.type && body.type !== 'TRANSFER' && 'to_card_id' in body) body.to_card_id = null
   if (body.amount !== undefined) body.amount = Math.abs(Number(body.amount))
   return body
 }
 
-type TxLike = { amount?: unknown; type?: unknown; card_id?: unknown } | null | undefined
+/** Una transferencia necesita origen y destino distintos */
+function transferError(body: Record<string, unknown>) {
+  if (body.type !== 'TRANSFER') return null
+  if (!body.card_id || !body.to_card_id) return 'Una transferencia necesita cuenta de origen y de destino'
+  if (body.card_id === body.to_card_id) return 'La cuenta de origen y la de destino deben ser distintas'
+  return null
+}
+
+type TxLike = { amount?: unknown; type?: unknown; card_id?: unknown; to_card_id?: unknown } | null | undefined
 
 /**
  * Efecto de un movimiento sobre el saldo de su cuenta.
@@ -38,15 +49,31 @@ function txEffect(tx: TxLike, cardType: string) {
   return cardType === 'CREDIT' ? -signed : signed
 }
 
+/**
+ * Efecto de un movimiento sobre una cuenta concreta.
+ * En una transferencia la plata sale del origen y entra al destino
+ * (en crédito: sacar sube la deuda, recibir la baja).
+ */
+function effectOn(tx: TxLike, card: { id: string; type: string }) {
+  if (!tx) return 0
+  if (tx.type !== 'TRANSFER') return tx.card_id === card.id ? txEffect(tx, card.type) : 0
+  const amount = Math.abs(Number(tx.amount) || 0)
+  const credit = card.type === 'CREDIT'
+  let d = 0
+  if (tx.card_id === card.id) d += credit ? amount : -amount
+  if (tx.to_card_id === card.id) d += credit ? -amount : amount
+  return d
+}
+
 /** Revierte el efecto de `before` y aplica el de `after` en las cuentas afectadas. */
 async function syncCardBalances(before: TxLike, after: TxLike) {
-  const ids = new Set([before?.card_id, after?.card_id].filter(Boolean) as string[])
+  const ids = new Set(
+    [before?.card_id, before?.to_card_id, after?.card_id, after?.to_card_id].filter(Boolean) as string[],
+  )
   if (!ids.size) return
   const { data: cards } = await supabase.from('cards').select('id, type, balance').in('id', [...ids])
   for (const card of cards || []) {
-    let delta = 0
-    if (before?.card_id === card.id) delta -= txEffect(before, card.type)
-    if (after?.card_id === card.id) delta += txEffect(after, card.type)
+    const delta = effectOn(after, card) - effectOn(before, card)
     if (!delta) continue
     const balance = Math.round((Number(card.balance || 0) + delta) * 100) / 100
     await supabase.from('cards').update({ balance }).eq('id', card.id)
@@ -130,7 +157,7 @@ export async function financeRoutes(app: FastifyInstance) {
     const { month, year, card_id } = req.query as { month?: string; year?: string; card_id?: string }
     let query = supabase
       .from('transactions')
-      .select('*, cards(name, bank, last_four)')
+      .select('*')
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
 
@@ -140,9 +167,18 @@ export async function financeRoutes(app: FastifyInstance) {
     }
     if (card_id) query = query.eq('card_id', card_id)
 
-    const { data, error } = await query
+    const [{ data, error }, { data: cards }] = await Promise.all([
+      query,
+      supabase.from('cards').select('id, name, bank, last_four'),
+    ])
     if (error) return reply.status(500).send({ error: error.message })
-    return data
+    // Se adjuntan a mano porque transactions tiene dos relaciones con cards (origen y destino)
+    const byId = new Map((cards || []).map((c) => [c.id, { name: c.name, bank: c.bank, last_four: c.last_four }]))
+    return (data || []).map((t) => ({
+      ...t,
+      cards: t.card_id ? byId.get(t.card_id) ?? null : null,
+      to_card: t.to_card_id ? byId.get(t.to_card_id) ?? null : null,
+    }))
   })
 
   app.post('/transactions', async (req, reply) => {
@@ -150,6 +186,8 @@ export async function financeRoutes(app: FastifyInstance) {
     if (!body.amount || !body.description || !body.category || !TX_TYPES.includes(body.type as string)) {
       return reply.status(400).send({ error: 'amount, description, category y type válidos son requeridos' })
     }
+    const tErr = transferError(body)
+    if (tErr) return reply.status(400).send({ error: tErr })
     const { data, error } = await supabase.from('transactions').insert(body).select().single()
     if (error) return reply.status(500).send({ error: error.message })
     await syncCardBalances(null, data)
@@ -158,10 +196,16 @@ export async function financeRoutes(app: FastifyInstance) {
 
   app.put('/transactions/:id', async (req, reply) => {
     const { id } = req.params as { id: string }
-    const { data: before } = await supabase.from('transactions').select('amount, type, card_id').eq('id', id).single()
+    const body = cleanTx(pick(req.body, TX_FIELDS))
+    if (body.type !== undefined && !TX_TYPES.includes(body.type as string)) {
+      return reply.status(400).send({ error: 'type inválido' })
+    }
+    const { data: before } = await supabase.from('transactions').select('*').eq('id', id).single()
+    const tErr = transferError({ ...before, ...body })
+    if (tErr) return reply.status(400).send({ error: tErr })
     const { data, error } = await supabase
       .from('transactions')
-      .update(cleanTx(pick(req.body, TX_FIELDS)))
+      .update(body)
       .eq('id', id)
       .select()
       .single()
@@ -172,7 +216,7 @@ export async function financeRoutes(app: FastifyInstance) {
 
   app.delete('/transactions/:id', async (req, reply) => {
     const { id } = req.params as { id: string }
-    const { data: before } = await supabase.from('transactions').select('amount, type, card_id').eq('id', id).single()
+    const { data: before } = await supabase.from('transactions').select('*').eq('id', id).single()
     const { error } = await supabase.from('transactions').delete().eq('id', id)
     if (error) return reply.status(500).send({ error: error.message })
     await syncCardBalances(before, null)
@@ -280,20 +324,31 @@ export async function financeRoutes(app: FastifyInstance) {
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('amount, type, category, cards(type)')
+      .select('*')
       .gte('date', start)
       .lte('date', end)
     if (error) return reply.status(500).send({ error: error.message })
+    const { data: cardRows } = await supabase.from('cards').select('id, type')
+    const creditIds = new Set((cardRows || []).filter((c) => c.type === 'CREDIT').map((c) => c.id))
+    const isCredit = (id: unknown) => !!id && creditIds.has(id as string)
 
     let income = 0, fixed = 0, variable = 0, savings = 0
     let creditSpent = 0   // gastos/ahorro pagados con tarjeta de crédito (usan cupo, no plata disponible)
     let cardPayments = 0  // "ingresos" registrados en una tarjeta de crédito = pagos a la tarjeta
+    let cashAdvances = 0  // transferencias desde una tarjeta de crédito a una cuenta (avances)
     const byCategory: Record<string, number> = {} // solo gastos (fijos + variables)
 
     for (const t of data || []) {
       const amount = Number(t.amount)
-      const card = Array.isArray(t.cards) ? t.cards[0] : t.cards
-      const onCredit = (card as { type?: string } | null)?.type === 'CREDIT'
+      const onCredit = isCredit(t.card_id)
+      if (t.type === 'TRANSFER') {
+        // Mover plata entre cuentas propias no es ingreso ni gasto. Solo cambia el
+        // disponible cuando entra a una tarjeta de crédito (pago) o sale de ella (avance).
+        const toCredit = isCredit(t.to_card_id)
+        if (toCredit && !onCredit) cardPayments += amount
+        if (onCredit && !toCredit) cashAdvances += amount
+        continue
+      }
       if (t.type === 'INCOME') {
         // Un ingreso en una tarjeta de crédito es un pago que baja la deuda, no plata nueva
         if (onCredit) cardPayments += amount
@@ -323,7 +378,7 @@ export async function financeRoutes(app: FastifyInstance) {
       card_payments: cardPayments,
       // Plata realmente libre: lo que se paga con crédito no sale del disponible
       // (se vuelve deuda); los pagos a la tarjeta sí salen del disponible.
-      net_balance: income - (totalExpenses + savings - creditSpent) - cardPayments,
+      net_balance: income - (totalExpenses + savings - creditSpent) - cardPayments + cashAdvances,
       savings_rate: pct(savings),
       // Regla 50/30/20: necesidades (fijos) / deseos (variables) / ahorro
       rule_50_30_20: { needs: pct(fixed), wants: pct(variable), savings: pct(savings) },
@@ -358,6 +413,7 @@ export async function financeRoutes(app: FastifyInstance) {
       const b = byKey.get(String(t.date).slice(0, 7))
       if (!b) continue
       const amount = Number(t.amount)
+      if (t.type === 'TRANSFER') continue // mover plata entre cuentas no es ingreso ni gasto
       if (t.type === 'INCOME') b.income += amount
       else if (t.type === 'SAVINGS') b.savings += amount
       else b.expenses += amount
